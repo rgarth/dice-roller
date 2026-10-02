@@ -185,15 +185,27 @@ body {
 
 .color-wheel {
   appearance: none;
+  position: relative;
   display: grid;
   place-items: center;
   width: 7.5rem;
   height: 7.5rem;
   margin: 0 auto;
   padding: 0;
-  border: 2px solid var(--border);
-  border-radius: 999px;
+  border: 0;
+  border-radius: 50%;
+  overflow: hidden;
   cursor: pointer;
+  background: var(--felt-deep);
+  box-shadow: 0 0 0 2px var(--border);
+  clip-path: circle(50%);
+}
+
+.color-wheel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     from 0deg,
     #ff0000 0deg,
@@ -210,16 +222,25 @@ body {
     #ff0080 330deg,
     #ff0000 360deg
   );
+  clip-path: circle(50%);
+  pointer-events: none;
+}
+
+.color-wheel::-moz-focus-inner {
+  border: 0;
+  padding: 0;
 }
 
 .color-wheel-hole {
+  position: relative;
+  z-index: 1;
   width: 3.4rem;
   height: 3.4rem;
-  border-radius: 999px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--felt-deep);
-  border: 2px solid var(--ink);
+  box-shadow: 0 0 0 2px var(--ink);
   pointer-events: none;
 }
 
