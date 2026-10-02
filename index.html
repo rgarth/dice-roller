@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dice roller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=IBM+Plex+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="table" aria-hidden="true"></div>
+
+    <aside class="tray" aria-label="Dice tray">
+      <p class="tray-label">Tray</p>
+      <div id="dice-picker" class="picker"></div>
+      <p class="cap" id="cap">0/10</p>
+      <div class="color-picker">
+        <button id="color-toggle" type="button" title="Choose dice color">
+          <span id="color-dot" class="color-dot"></span>
+        </button>
+      </div>
+      <button id="roll-btn" type="button" disabled>Roll</button>
+      <button id="clear-btn" type="button" disabled>Clear</button>
+    </aside>
+
+    <div id="color-panel" class="color-panel" hidden>
+      <div class="color-panel-head">
+        <button id="color-reset" type="button" title="Reset to default">
+          ↺
+        </button>
+        <p>Choose color</p>
+        <button id="color-close" type="button" title="Close">×</button>
+      </div>
+      <button id="color-wheel" class="color-wheel" type="button" title="Click to select color">
+        <span class="color-wheel-hole">
+          <span id="color-preview" class="color-preview"></span>
+        </span>
+      </button>
+      <label class="brightness">
+        Brightness
+        <input id="color-brightness" type="range" min="0" max="100" />
+      </label>
+    </div>
+
+    <section class="result" id="result" hidden>
+      <p class="notation" id="notation"></p>
+      <p class="breakdown" id="breakdown"></p>
+      <p class="total" id="total"></p>
+    </section>
+
+    <p class="status" id="status" hidden></p>
+
+    <script src="vendor/three.min.js"></script>
+    <script src="vendor/cannon.min.js"></script>
+    <script src="vendor/dice.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
