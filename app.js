@@ -235,18 +235,8 @@ function positionColorPanel() {
   const viewportHeight = window.innerHeight;
   const panelWidth = colorPanel.offsetWidth || 200;
   const panelHeight = colorPanel.offsetHeight || 280;
-  const sideTray = window.matchMedia("(min-width: 721px)").matches;
-
-  let top;
-  let left;
-
-  if (sideTray) {
-    top = rect.top + rect.height / 2 - panelHeight / 2;
-    left = rect.right + 12;
-  } else {
-    top = rect.top - panelHeight - 12;
-    left = rect.left + rect.width / 2 - panelWidth / 2;
-  }
+  let top = rect.top + rect.height / 2 - panelHeight / 2;
+  let left = rect.right + 12;
 
   if (top < 10) {
     top = 10;
