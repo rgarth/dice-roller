@@ -605,7 +605,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = "700 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
+            context.font = "400 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
             context.fillStyle = back_color;
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.textAlign = "center";
@@ -632,7 +632,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = "700 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
+            context.font = "400 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
             context.fillStyle = back_color;
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.textAlign = "center";

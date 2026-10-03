@@ -216,6 +216,7 @@ body {
   height: 3rem;
   border-radius: 0.7rem;
   font-family: var(--display);
+  font-weight: 700;
   letter-spacing: 0.06em;
   padding: 0;
   display: grid;
@@ -276,6 +277,7 @@ body {
 .total {
   margin: 0.15rem 0 0;
   font-family: var(--display);
+  font-weight: 700;
   font-size: clamp(3.2rem, 8vw, 6rem);
   line-height: 0.9;
   color: var(--gold);

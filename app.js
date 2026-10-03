@@ -385,7 +385,11 @@ function boot() {
 }
 
 if (document.fonts?.load) {
-  Promise.all([document.fonts.load("700 64px Cinzel"), document.fonts.ready]).then(boot, boot);
+  Promise.all([
+    document.fonts.load("400 64px Cinzel"),
+    document.fonts.load("700 64px Cinzel"),
+    document.fonts.ready,
+  ]).then(boot, boot);
 } else {
   boot();
 }
