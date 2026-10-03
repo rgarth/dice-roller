@@ -139,26 +139,21 @@ const DICE = (function() {
                     this.dice_body_material, this.dice_body_material, 0, 0.5));
 
         this.world.add(new CANNON.RigidBody(0, new CANNON.Plane(), desk_body_material));
-        var barrier;
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-        barrier.position.set(0, this.h * 0.93, 0);
-        this.world.add(barrier);
-
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        barrier.position.set(0, -this.h * 0.93, 0);
-        this.world.add(barrier);
-
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
-        barrier.position.set(this.w * 0.93, 0, 0);
-        this.world.add(barrier);
-
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
-        barrier.position.set(-this.w * 0.93, 0, 0);
-        this.world.add(barrier);
+        this.barriers = {
+            north: new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material),
+            south: new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material),
+            east: new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material),
+            west: new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material)
+        };
+        this.barriers.north.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+        this.barriers.south.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        this.barriers.east.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
+        this.barriers.west.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
+        this.world.add(this.barriers.north);
+        this.world.add(this.barriers.south);
+        this.world.add(this.barriers.east);
+        this.world.add(this.barriers.west);
+        this.placeBarriers();
 
         this.last_time = 0;
         this.running = false;
@@ -167,36 +162,49 @@ const DICE = (function() {
     }
 
     // called on init and window resize
+    that.dice_box.prototype.placeBarriers = function() {
+        if (!this.barriers) return;
+        var reach = Math.min(vars.scale * 1.7, Math.min(this.w, this.h) * 0.45);
+        var x = Math.max(reach + 1, this.w - reach);
+        var y = Math.max(reach + 1, this.h - reach);
+        this.barriers.north.position.set(0, y, 0);
+        this.barriers.south.position.set(0, -y, 0);
+        this.barriers.east.position.set(x, 0, 0);
+        this.barriers.west.position.set(-x, 0, 0);
+    }
+
     that.dice_box.prototype.reinit = function(container) {
-        this.cw = container.clientWidth / 2;
-        this.ch = container.clientHeight / 2;
+        var width = container.clientWidth;
+        var height = container.clientHeight;
+        if (window.innerWidth) width = Math.min(width, window.innerWidth);
+        if (window.innerHeight) height = Math.min(height, window.innerHeight);
+        width = Math.max(1, width);
+        height = Math.max(1, height);
+
+        this.cw = width / 2;
+        this.ch = height / 2;
         this.w = this.cw;
         this.h = this.ch;
         this.aspect = Math.min(this.cw / this.w, this.ch / this.h);
-        // Calculate base scale using diagonal
         var baseScale = Math.sqrt(this.w * this.w + this.h * this.h) / 8 * 0.85;
-        
-        // Better scaling for large displays
-        // Use a more reasonable scale calculation that doesn't grow as aggressively
-        var screenWidth = this.cw * 2; // Full screen width
-        
-        // For large displays, use a more conservative scale based on screen width
         var maxScale;
-        if (screenWidth > 1200) {
-          // Large displays: cap based on screen width, not diagonal
-          maxScale = Math.min(screenWidth / 20, 50); // Much smaller dice
-        } else if (screenWidth > 800) {
-          // Medium displays: moderate scaling
-          maxScale = Math.min(screenWidth / 15, 70);
+        if (width > 1200) {
+          maxScale = Math.min(width / 20, 50);
+        } else if (width > 800) {
+          maxScale = Math.min(width / 15, 70);
         } else {
-          // Small displays: use original calculation
           maxScale = baseScale;
         }
-        
-        vars.scale = Math.min(baseScale, maxScale);
-        //console.log('scale = ' + vars.scale);
+        // Keep a die small enough to sit fully inside the screen width.
+        var fitScale = width / 8;
+        var nextScale = Math.min(baseScale, maxScale, fitScale);
+        if (nextScale !== vars.scale) {
+          vars.scale = nextScale;
+          clearGeometryCache();
+        }
 
-        this.renderer.setSize(this.cw * 2, this.ch * 2);
+        this.renderer.setSize(width, height, false);
+        this.placeBarriers();
 
         this.wh = this.ch / this.aspect / Math.tan(10 * Math.PI / 180);
         if (this.camera) this.scene.remove(this.camera);
@@ -1117,6 +1125,18 @@ const DICE = (function() {
     that.vars = vars;
 
     // Function to clear cached materials when colors change
+    function clearGeometryCache() {
+        threeD_dice.d4_geometry = null;
+        threeD_dice.d6_geometry = null;
+        threeD_dice.d8_geometry = null;
+        threeD_dice.d10_geometry = null;
+        threeD_dice.d12_geometry = null;
+        threeD_dice.d20_geometry = null;
+        threeD_dice.d4_material = null;
+        threeD_dice.dice_material = null;
+        threeD_dice.d100_material = null;
+    }
+
     that.clearMaterialCache = function() {
         if (threeD_dice) {
             threeD_dice.dice_material = null;
