@@ -1,6 +1,17 @@
 const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20"];
 const MAX_DICE = 10;
-const DEFAULT_COLOR = "#202020";
+const COLOR_COOKIE = "dice_color";
+const COLOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const COLORS = [
+  { name: "Onyx", dice: "#1a1a1a", label: "#c4a15a" },
+  { name: "Bone", dice: "#c4b089", label: "#1a1410", light: true },
+  { name: "Blood", dice: "#6e1512", label: "#f3efe4" },
+  { name: "Navy", dice: "#1a2c4a", label: "#f3efe4" },
+  { name: "Forest", dice: "#1c3326", label: "#c4a15a" },
+  { name: "Plum", dice: "#3a2044", label: "#f3efe4" },
+  { name: "Rose", dice: "#a24d62", label: "#f3efe4" },
+  { name: "Aqua", dice: "#2a8f8c", label: "#f3efe4" },
+];
 
 const table = document.getElementById("table");
 const picker = document.getElementById("dice-picker");
@@ -8,10 +19,7 @@ const cap = document.getElementById("cap");
 const colorToggle = document.getElementById("color-toggle");
 const colorDot = document.getElementById("color-dot");
 const colorPanel = document.getElementById("color-panel");
-const colorWheel = document.getElementById("color-wheel");
-const colorPreview = document.getElementById("color-preview");
-const colorBrightness = document.getElementById("color-brightness");
-const colorReset = document.getElementById("color-reset");
+const colorSwatches = document.getElementById("color-swatches");
 const colorClose = document.getElementById("color-close");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
@@ -30,7 +38,7 @@ const counts = {
   d20: 0,
 };
 
-let diceColor = DEFAULT_COLOR;
+let selectedColor = COLORS[0];
 let box = null;
 let rolling = false;
 
@@ -44,110 +52,35 @@ function buildNotation() {
     .join("+");
 }
 
-function labelColor(hex) {
-  const value = hex.replace("#", "");
-  const r = parseInt(value.slice(0, 2), 16) / 255;
-  const g = parseInt(value.slice(2, 4), 16) / 255;
-  const b = parseInt(value.slice(4, 6), 16) / 255;
-  const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
-  return lightness < 0.5 ? "#ffffff" : "#140c09";
+function isLightDie(color) {
+  return color.light === true;
 }
 
-function hexToHsl(hex) {
-  if (!hex || !hex.startsWith("#") || hex.length !== 7) {
-    throw new Error(`Invalid hex color: ${hex}`);
+function readCookie(name) {
+  const prefix = `${name}=`;
+  for (const part of document.cookie.split("; ")) {
+    if (part.startsWith(prefix)) {
+      return decodeURIComponent(part.slice(prefix.length));
+    }
   }
-
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-    throw new Error(`Invalid hex color values: ${hex}`);
-  }
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const diff = max - min;
-
-  let h = 0;
-  if (diff === 0) {
-    h = 0;
-  } else if (max === r) {
-    h = ((g - b) / diff) % 6;
-  } else if (max === g) {
-    h = (b - r) / diff + 2;
-  } else {
-    h = (r - g) / diff + 4;
-  }
-
-  h = Math.round(h * 60);
-  if (h < 0) {
-    h += 360;
-  }
-
-  const l = (max + min) / 2;
-  const s = max === 0 ? 0 : diff / (1 - Math.abs(2 * l - 1));
-
-  return { h, s: s * 100, l: l * 100 };
+  return null;
 }
 
-function hslToHex(h, s, l) {
-  h = ((h % 360) + 360) % 360;
-  s = Math.max(0, Math.min(100, s)) / 100;
-  l = Math.max(0, Math.min(100, l)) / 100;
-
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = l - c / 2;
-
-  let r = 0;
-  let g = 0;
-  let b = 0;
-
-  if (h >= 0 && h < 60) {
-    r = c;
-    g = x;
-    b = 0;
-  } else if (h >= 60 && h < 120) {
-    r = x;
-    g = c;
-    b = 0;
-  } else if (h >= 120 && h < 180) {
-    r = 0;
-    g = c;
-    b = x;
-  } else if (h >= 180 && h < 240) {
-    r = 0;
-    g = x;
-    b = c;
-  } else if (h >= 240 && h < 300) {
-    r = x;
-    g = 0;
-    b = c;
-  } else if (h >= 300 && h < 360) {
-    r = c;
-    g = 0;
-    b = x;
-  } else {
-    throw new Error(`Unhandled hue: ${h}`);
-  }
-
-  const rHex = Math.round((r + m) * 255)
-    .toString(16)
-    .padStart(2, "0");
-  const gHex = Math.round((g + m) * 255)
-    .toString(16)
-    .padStart(2, "0");
-  const bHex = Math.round((b + m) * 255)
-    .toString(16)
-    .padStart(2, "0");
-
-  return `#${rHex}${gHex}${bHex}`;
+function writeColorCookie(color) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${COLOR_COOKIE}=${encodeURIComponent(color.name)}; Max-Age=${COLOR_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
 }
 
-function currentLightness() {
-  return hexToHsl(diceColor).l;
+function savedColor() {
+  const name = readCookie(COLOR_COOKIE);
+  if (!name) {
+    return COLORS[0];
+  }
+  const match = COLORS.find((color) => color.name === name);
+  if (!match) {
+    return COLORS[0];
+  }
+  return match;
 }
 
 function showStatus(message) {
@@ -185,8 +118,8 @@ function renderPicker() {
     const face = document.createElement("span");
     face.className = "die-face";
     face.textContent = type.toUpperCase();
-    face.style.backgroundColor = diceColor;
-    face.style.color = labelColor(diceColor);
+    face.style.backgroundColor = selectedColor.dice;
+    face.style.color = selectedColor.label;
     button.append(face);
     wrap.append(button);
 
@@ -213,15 +146,31 @@ function renderPicker() {
   colorToggle.disabled = rolling;
 }
 
-function applyDiceColor(hex) {
-  diceColor = hex;
-  colorDot.style.backgroundColor = hex;
-  colorPreview.style.backgroundColor = hex;
-  colorBrightness.value = String(Math.round(currentLightness()));
-  colorBrightness.style.background = `linear-gradient(to right, #000, ${hex}, #fff)`;
+function renderSwatches() {
+  colorSwatches.replaceChildren();
+  for (const color of COLORS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "color-swatch";
+    button.title = color.name;
+    button.textContent = "20";
+    button.style.backgroundColor = color.dice;
+    button.style.color = color.label;
+    button.classList.toggle("is-current", color.dice === selectedColor.dice);
+    button.classList.toggle("is-light", isLightDie(color));
+    button.addEventListener("click", () => applyDiceColor(color));
+    colorSwatches.append(button);
+  }
+}
+
+function applyDiceColor(color) {
+  selectedColor = color;
+  colorDot.style.backgroundColor = color.dice;
+  writeColorCookie(color);
   window.DICE?.clearMaterialCache?.();
   table.replaceChildren();
   box = null;
+  renderSwatches();
   renderPicker();
 }
 
@@ -269,22 +218,6 @@ function toggleColorPanel() {
     return;
   }
   closeColorPanel();
-}
-
-function pickWheelColor(event) {
-  const rect = colorWheel.getBoundingClientRect();
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-  const x = event.clientX - rect.left - centerX;
-  const y = event.clientY - rect.top - centerY;
-  const radius = Math.hypot(x, y);
-  if (radius < 28) {
-    return;
-  }
-
-  const angle = (Math.atan2(x, -y) * 180) / Math.PI;
-  const hue = (angle + 360) % 360;
-  applyDiceColor(hslToHex(hue, 100, 50));
 }
 
 function addDie(type) {
@@ -343,8 +276,9 @@ function configureDice() {
   if (!window.DICE?.vars) {
     throw new Error("The dice library did not load.");
   }
-  window.DICE.vars.dice_color = diceColor;
-  window.DICE.vars.label_color = labelColor(diceColor);
+  window.DICE.vars.dice_color = selectedColor.dice;
+  window.DICE.vars.label_color = selectedColor.label;
+  window.DICE.vars.label_font = "Cinzel";
   window.DICE.vars.desk_color = "#14241c";
   window.DICE.vars.desk_opacity = 0;
   window.DICE.clearMaterialCache?.();
@@ -411,13 +345,6 @@ rollButton.addEventListener("click", roll);
 clearButton.addEventListener("click", clearDice);
 colorToggle.addEventListener("click", toggleColorPanel);
 colorClose.addEventListener("click", closeColorPanel);
-colorReset.addEventListener("click", () => applyDiceColor(DEFAULT_COLOR));
-colorWheel.addEventListener("click", pickWheelColor);
-colorBrightness.addEventListener("input", (event) => {
-  const brightness = Number.parseInt(event.target.value, 10);
-  const hsl = hexToHsl(diceColor);
-  applyDiceColor(hslToHex(hsl.h, hsl.s, brightness));
-});
 document.addEventListener("mousedown", (event) => {
   if (colorPanel.hidden) {
     return;
@@ -439,18 +366,26 @@ window.addEventListener("resize", () => {
   }
 });
 
-applyDiceColor(DEFAULT_COLOR);
+function boot() {
+  applyDiceColor(savedColor());
 
-try {
-  const hadQuery = window.location.search.length > 1;
-  parseQuery(window.location.search);
-  renderPicker();
-  if (hadQuery && totalDice() > 0) {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(roll);
-    });
+  try {
+    const hadQuery = window.location.search.length > 1;
+    parseQuery(window.location.search);
+    renderPicker();
+    if (hadQuery && totalDice() > 0) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(roll);
+      });
+    }
+  } catch (error) {
+    renderPicker();
+    fail(error);
   }
-} catch (error) {
-  renderPicker();
-  fail(error);
+}
+
+if (document.fonts?.load) {
+  Promise.all([document.fonts.load("700 64px Cinzel"), document.fonts.ready]).then(boot, boot);
+} else {
+  boot();
 }

@@ -67,6 +67,7 @@ const DICE = (function() {
         },
         label_color: '#aaaaaa', //numbers on dice
         dice_color: '#202020',
+        label_font: 'Cinzel',
         ambient_light_color: 0xf0f0f0,
         spot_light_color: 0xefefef,
         desk_color: '#101010', //canvas background
@@ -604,7 +605,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = ts / (1 + 2 * margin) + "pt Arial";
+            context.font = "700 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
             context.fillStyle = back_color;
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.textAlign = "center";
@@ -631,7 +632,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = (ts - margin) * 0.5 + "pt Arial";
+            context.font = "700 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
             context.fillStyle = back_color;
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.textAlign = "center";
