@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=ui700" />
+    <link rel="stylesheet" href="styles.css?v=marble-toggle" />
   </head>
   <body>
     <div id="table" aria-hidden="true"></div>
@@ -34,6 +34,10 @@
         <button id="color-close" type="button" title="Close">×</button>
       </div>
       <div id="color-swatches" class="color-swatches"></div>
+      <label class="marble-toggle">
+        <input id="marble-toggle" type="checkbox" />
+        Marble
+      </label>
     </div>
 
     <section class="result" id="result" hidden>
@@ -46,7 +50,7 @@
 
     <script src="vendor/three.min.js"></script>
     <script src="vendor/cannon.min.js"></script>
-    <script src="vendor/dice.js?v=cinzel400"></script>
-    <script src="app.js?v=cinzel-ui700"></script>
+    <script src="vendor/dice.js?v=marble-toggle"></script>
+    <script src="app.js?v=marble-toggle"></script>
   </body>
 </html>

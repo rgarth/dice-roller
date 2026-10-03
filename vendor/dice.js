@@ -68,6 +68,7 @@ const DICE = (function() {
         label_color: '#aaaaaa', //numbers on dice
         dice_color: '#202020',
         label_font: 'Cinzel',
+        use_marble: false,
         ambient_light_color: 0xf0f0f0,
         spot_light_color: 0xefefef,
         desk_color: '#101010', //canvas background
@@ -598,6 +599,79 @@ const DICE = (function() {
         return new THREE.Mesh(this.d10_geometry, this.d100_material);
     }
     
+    function hex_to_rgb(hex) {
+        var h = String(hex).replace('#', '');
+        if (h.length === 3) {
+            h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+        }
+        var n = parseInt(h, 16);
+        if (isNaN(n)) return { r: 32, g: 32, b: 32 };
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+
+    function shade_color(rgb, amount) {
+        function channel(v) {
+            var next = amount >= 0 ? v + (255 - v) * amount : v * (1 + amount);
+            return Math.max(0, Math.min(255, Math.round(next)));
+        }
+        return 'rgb(' + channel(rgb.r) + ',' + channel(rgb.g) + ',' + channel(rgb.b) + ')';
+    }
+
+    function marble_edge_point(width, height) {
+        var edge = Math.floor(Math.random() * 4);
+        if (edge === 0) return { x: Math.random() * width, y: 0 };
+        if (edge === 1) return { x: width, y: Math.random() * height };
+        if (edge === 2) return { x: Math.random() * width, y: height };
+        return { x: 0, y: Math.random() * height };
+    }
+
+    function paint_marble(context, width, height, back_color, withVeins) {
+        var base = hex_to_rgb(back_color);
+        context.save();
+        context.fillStyle = back_color;
+        context.fillRect(0, 0, width, height);
+
+        var clouds = 16;
+        for (var i = 0; i < clouds; i++) {
+            var x = Math.random() * width;
+            var y = Math.random() * height;
+            var radius = width * (0.12 + Math.random() * 0.32);
+            var gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+            gradient.addColorStop(0, shade_color(base, Math.random() > 0.5 ? 0.34 : -0.22));
+            gradient.addColorStop(1, shade_color(base, 0));
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.arc(x, y, radius, 0, Math.PI * 2);
+            context.fill();
+        }
+
+        if (withVeins) {
+            context.lineCap = 'round';
+            context.lineJoin = 'round';
+            var veins = 2 + Math.floor(Math.random() * 2);
+            for (var v = 0; v < veins; v++) {
+                var start = marble_edge_point(width, height);
+                var end = marble_edge_point(width, height);
+                var bright = Math.random() > 0.45;
+                context.beginPath();
+                context.moveTo(start.x, start.y);
+                context.quadraticCurveTo(
+                    width * (0.15 + Math.random() * 0.7),
+                    height * (0.15 + Math.random() * 0.7),
+                    end.x,
+                    end.y
+                );
+                context.strokeStyle = shade_color(base, bright ? 0.55 : -0.4);
+                context.shadowColor = context.strokeStyle;
+                context.shadowBlur = width * 0.035;
+                context.globalAlpha = 0.55;
+                context.lineWidth = Math.max(3, width * 0.028);
+                context.stroke();
+            }
+        }
+        context.restore();
+    }
+
     function create_dice_materials(face_labels, size, margin) {
         function create_text_texture(text, color, back_color) {
             if (text == undefined) return null;
@@ -606,8 +680,12 @@ const DICE = (function() {
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
             context.font = "400 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
-            context.fillStyle = back_color;
-            context.fillRect(0, 0, canvas.width, canvas.height);
+            if (vars.use_marble) {
+                paint_marble(context, canvas.width, canvas.height, back_color, text !== ' ');
+            } else {
+                context.fillStyle = back_color;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.fillStyle = color;
@@ -633,8 +711,12 @@ const DICE = (function() {
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
             context.font = "400 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
-            context.fillStyle = back_color;
-            context.fillRect(0, 0, canvas.width, canvas.height);
+            if (vars.use_marble) {
+                paint_marble(context, canvas.width, canvas.height, back_color, true);
+            } else {
+                context.fillStyle = back_color;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.fillStyle = color;

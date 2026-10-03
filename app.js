@@ -1,6 +1,7 @@
 const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20"];
 const MAX_DICE = 10;
 const COLOR_COOKIE = "dice_color";
+const MARBLE_COOKIE = "dice_marble";
 const COLOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COLORS = [
   { name: "Onyx", dice: "#1a1a1a", label: "#c4a15a" },
@@ -20,6 +21,7 @@ const colorToggle = document.getElementById("color-toggle");
 const colorDot = document.getElementById("color-dot");
 const colorPanel = document.getElementById("color-panel");
 const colorSwatches = document.getElementById("color-swatches");
+const marbleToggle = document.getElementById("marble-toggle");
 const colorClose = document.getElementById("color-close");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
@@ -39,6 +41,7 @@ const counts = {
 };
 
 let selectedColor = COLORS[0];
+let marble = false;
 let box = null;
 let rolling = false;
 
@@ -66,9 +69,17 @@ function readCookie(name) {
   return null;
 }
 
-function writeColorCookie(color) {
+function cookieSuffix() {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${COLOR_COOKIE}=${encodeURIComponent(color.name)}; Max-Age=${COLOR_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
+  return `; Max-Age=${COLOR_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
+}
+
+function writeColorCookie(color) {
+  document.cookie = `${COLOR_COOKIE}=${encodeURIComponent(color.name)}${cookieSuffix()}`;
+}
+
+function writeMarbleCookie(enabled) {
+  document.cookie = `${MARBLE_COOKIE}=${enabled ? "1" : "0"}${cookieSuffix()}`;
 }
 
 function savedColor() {
@@ -81,6 +92,10 @@ function savedColor() {
     return COLORS[0];
   }
   return match;
+}
+
+function savedMarble() {
+  return readCookie(MARBLE_COOKIE) === "1";
 }
 
 function showStatus(message) {
@@ -163,15 +178,26 @@ function renderSwatches() {
   }
 }
 
+function resetDiceTable() {
+  window.DICE?.clearMaterialCache?.();
+  table.replaceChildren();
+  box = null;
+}
+
 function applyDiceColor(color) {
   selectedColor = color;
   colorDot.style.backgroundColor = color.dice;
   writeColorCookie(color);
-  window.DICE?.clearMaterialCache?.();
-  table.replaceChildren();
-  box = null;
+  resetDiceTable();
   renderSwatches();
   renderPicker();
+}
+
+function applyMarble(enabled) {
+  marble = enabled;
+  marbleToggle.checked = enabled;
+  writeMarbleCookie(enabled);
+  resetDiceTable();
 }
 
 function closeColorPanel() {
@@ -281,6 +307,7 @@ function configureDice() {
   window.DICE.vars.label_font = "Cinzel";
   window.DICE.vars.desk_color = "#14241c";
   window.DICE.vars.desk_opacity = 0;
+  window.DICE.vars.use_marble = marble;
   window.DICE.clearMaterialCache?.();
 }
 
@@ -345,6 +372,9 @@ rollButton.addEventListener("click", roll);
 clearButton.addEventListener("click", clearDice);
 colorToggle.addEventListener("click", toggleColorPanel);
 colorClose.addEventListener("click", closeColorPanel);
+marbleToggle.addEventListener("change", () => {
+  applyMarble(marbleToggle.checked);
+});
 document.addEventListener("mousedown", (event) => {
   if (colorPanel.hidden) {
     return;
@@ -367,6 +397,8 @@ window.addEventListener("resize", () => {
 });
 
 function boot() {
+  marble = savedMarble();
+  marbleToggle.checked = marble;
   applyDiceColor(savedColor());
 
   try {

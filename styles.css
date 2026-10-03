@@ -210,6 +210,23 @@ body {
   border-color: var(--gold);
 }
 
+.marble-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.marble-toggle input {
+  margin: 0;
+  accent-color: var(--gold);
+}
+
 #roll-btn,
 #clear-btn {
   width: 3rem;
