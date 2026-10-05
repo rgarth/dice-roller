@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --felt: #14241c;
   --felt-deep: #0c1611;
   --ink: #e8dfc8;
@@ -22,7 +23,8 @@ body {
   margin: 0;
   height: 100%;
   height: 100dvh;
-  background: radial-gradient(ellipse at center, var(--felt), var(--felt-deep) 70%);
+  background-color: var(--felt-deep);
+  background-image: radial-gradient(ellipse at center, var(--felt), var(--felt-deep) 70%);
   color: var(--ink);
   font-family: var(--body);
   overflow: hidden;
@@ -34,6 +36,8 @@ body {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  background-color: var(--felt-deep);
+  background-image: radial-gradient(ellipse at center, var(--felt), var(--felt-deep) 70%);
 }
 
 #table canvas {
