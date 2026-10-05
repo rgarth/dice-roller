@@ -118,8 +118,6 @@ const DICE = (function() {
         this.renderer.setClearColor(0xffffff, 0); //color, alpha
 
         this.reinit(container);
-        // Note: Resize handling is now done in the React component
-        // to avoid issues with multiple canvas creation
 
         this.world.gravity.set(0, 0, -9.8 * 800);
         this.world.broadphase = new CANNON.NaiveBroadphase();
@@ -285,16 +283,6 @@ const DICE = (function() {
         var vectors = box.generate_vectors(notation, vector, boost);
         box.rolling = true;
         let request_results = null;        
-
-        let numDice = vectors.length;
-        numDice = numDice > 10 ? 10 : numDice;
-        for(let i = 0; i < numDice; i++) {
-            let volume = i/10;
-            if(volume <= 0) volume = 0.1;
-            if(volume > 1) volume = 1;
-            playSound(box.container, volume);
-            //todo: find a better way to do this
-        }
 
         if (before_roll) {
             request_results = before_roll(notation);
@@ -1115,16 +1103,8 @@ const DICE = (function() {
         );
     }
     
-    //playSound function disabled - no sound effects
-    function playSound() {
-        // Sound disabled to prevent console errors
-        return;
-    }
-
-    // Expose vars object for external modification
     that.vars = vars;
 
-    // Function to clear cached materials when colors change
     function clearGeometryCache() {
         threeD_dice.d4_geometry = null;
         threeD_dice.d6_geometry = null;
@@ -1138,11 +1118,9 @@ const DICE = (function() {
     }
 
     that.clearMaterialCache = function() {
-        if (threeD_dice) {
-            threeD_dice.dice_material = null;
-            threeD_dice.d4_material = null;
-            threeD_dice.d100_material = null;
-        }
+        threeD_dice.dice_material = null;
+        threeD_dice.d4_material = null;
+        threeD_dice.d100_material = null;
     };
 
     return that;

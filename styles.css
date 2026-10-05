@@ -87,21 +87,23 @@ body {
 .die-btn,
 #roll-btn,
 #clear-btn,
-#shake-btn {
+#shake-btn,
+#color-toggle {
   appearance: none;
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--ink);
-}
-
-.die-btn {
   width: 3rem;
   height: 3rem;
   border-radius: 0.7rem;
   padding: 0;
   display: grid;
   place-items: center;
+}
+
+#shake-btn[hidden] {
+  display: none;
 }
 
 .die-btn:disabled {
@@ -135,22 +137,6 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 0;
-}
-
-.color-picker {
-  position: relative;
-}
-
-#color-toggle {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--border);
-  background: var(--card);
-  padding: 0;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
 }
 
 .color-dot {
@@ -245,19 +231,9 @@ body {
 #roll-btn,
 #clear-btn,
 #shake-btn {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.7rem;
   font-family: var(--display);
   font-weight: 700;
   letter-spacing: 0.06em;
-  padding: 0;
-  display: grid;
-  place-items: center;
-}
-
-#shake-btn[hidden] {
-  display: none;
 }
 
 #roll-btn {

@@ -44,6 +44,7 @@ const counts = {
 const SHAKE_THRESHOLD = 15;
 const SHAKE_LOCK_MS = 1000;
 const SHAKE_SAMPLE_MS = 100;
+const SHAKE_WINDOW_MS = 300;
 
 let selectedColor = COLORS[0];
 let marble = false;
@@ -62,10 +63,6 @@ function buildNotation() {
   return DICE_TYPES.filter((type) => counts[type] > 0)
     .map((type) => `${counts[type]}${type}`)
     .join("+");
-}
-
-function isLightDie(color) {
-  return color.light === true;
 }
 
 function readCookie(name) {
@@ -93,14 +90,7 @@ function writeMarbleCookie(enabled) {
 
 function savedColor() {
   const name = readCookie(COLOR_COOKIE);
-  if (!name) {
-    return COLORS[0];
-  }
-  const match = COLORS.find((color) => color.name === name);
-  if (!match) {
-    return COLORS[0];
-  }
-  return match;
+  return COLORS.find((color) => color.name === name) || COLORS[0];
 }
 
 function savedMarble() {
@@ -181,14 +171,14 @@ function renderSwatches() {
     button.style.backgroundColor = color.dice;
     button.style.color = color.label;
     button.classList.toggle("is-current", color.dice === selectedColor.dice);
-    button.classList.toggle("is-light", isLightDie(color));
+    button.classList.toggle("is-light", color.light === true);
     button.addEventListener("click", () => applyDiceColor(color));
     colorSwatches.append(button);
   }
 }
 
 function resetDiceTable() {
-  window.DICE?.clearMaterialCache?.();
+  window.DICE.clearMaterialCache();
   table.replaceChildren();
   box = null;
 }
@@ -317,7 +307,7 @@ function configureDice() {
   window.DICE.vars.desk_color = "#14241c";
   window.DICE.vars.desk_opacity = 0;
   window.DICE.vars.use_marble = marble;
-  window.DICE.clearMaterialCache?.();
+  window.DICE.clearMaterialCache();
 }
 
 function getBox() {
@@ -371,18 +361,19 @@ function roll() {
   }
 }
 
-function onResize() {
-  if (box) {
-    box.reinit(table);
+function acceleration(reading) {
+  if (!reading || !Number.isFinite(reading.x) || !Number.isFinite(reading.y) || !Number.isFinite(reading.z)) {
+    return null;
   }
+  return reading;
 }
 
-function finiteNumber(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function motionNeedsGesture() {
-  return typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function";
+function rollFromShake(now) {
+  if (now < shakeLockedUntil) {
+    return;
+  }
+  shakeLockedUntil = now + SHAKE_LOCK_MS;
+  roll();
 }
 
 function startShakeWatch() {
@@ -400,13 +391,11 @@ async function enableShake() {
   }
   shakeRequestPending = true;
   try {
-    if (motionNeedsGesture()) {
-      const state = await DeviceMotionEvent.requestPermission();
-      if (state !== "granted") {
-        shakeButton.hidden = true;
-        showStatus("Shake needs motion access.");
-        return;
-      }
+    const state = await DeviceMotionEvent.requestPermission();
+    if (state !== "granted") {
+      shakeButton.hidden = true;
+      showStatus("Shake needs motion access.");
+      return;
     }
     startShakeWatch();
   } catch {
@@ -416,38 +405,36 @@ async function enableShake() {
 
 function onShake(event) {
   const now = Date.now();
-  const linear = event.acceleration;
-  if (linear && finiteNumber(linear.x) && finiteNumber(linear.y) && finiteNumber(linear.z)) {
-    const magnitude = Math.hypot(linear.x, linear.y, linear.z);
-    if (magnitude >= SHAKE_THRESHOLD && now >= shakeLockedUntil) {
-      shakeLockedUntil = now + SHAKE_LOCK_MS;
-      roll();
+  const linear = acceleration(event.acceleration);
+  if (linear) {
+    if (Math.hypot(linear.x, linear.y, linear.z) >= SHAKE_THRESHOLD) {
+      rollFromShake(now);
     }
     return;
   }
 
-  const gravity = event.accelerationIncludingGravity;
-  if (!gravity || !finiteNumber(gravity.x) || !finiteNumber(gravity.y) || !finiteNumber(gravity.z)) {
+  const gravity = acceleration(event.accelerationIncludingGravity);
+  const previous = lastGravity;
+  if (!gravity) {
     return;
   }
-  const previous = lastGravity;
-  if (!previous || now - previous.time >= SHAKE_SAMPLE_MS) {
-    if (previous && now - previous.time < 300) {
-      const delta = Math.hypot(gravity.x - previous.x, gravity.y - previous.y, gravity.z - previous.z);
-      if (delta >= SHAKE_THRESHOLD && now >= shakeLockedUntil) {
-        shakeLockedUntil = now + SHAKE_LOCK_MS;
-        roll();
-      }
-    }
-    lastGravity = { x: gravity.x, y: gravity.y, z: gravity.z, time: now };
+  if (previous && now - previous.time < SHAKE_SAMPLE_MS) {
+    return;
   }
+  if (previous && now - previous.time < SHAKE_WINDOW_MS) {
+    const delta = Math.hypot(gravity.x - previous.x, gravity.y - previous.y, gravity.z - previous.z);
+    if (delta >= SHAKE_THRESHOLD) {
+      rollFromShake(now);
+    }
+  }
+  lastGravity = { x: gravity.x, y: gravity.y, z: gravity.z, time: now };
 }
 
 function setupShake() {
   if (typeof DeviceMotionEvent === "undefined") {
     return;
   }
-  if (!motionNeedsGesture()) {
+  if (typeof DeviceMotionEvent.requestPermission !== "function") {
     startShakeWatch();
     return;
   }
@@ -479,7 +466,9 @@ document.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("resize", () => {
-  onResize();
+  if (box) {
+    box.reinit(table);
+  }
   if (!colorPanel.hidden) {
     positionColorPanel();
   }
