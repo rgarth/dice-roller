@@ -86,7 +86,8 @@ body {
 
 .die-btn,
 #roll-btn,
-#clear-btn {
+#clear-btn,
+#shake-btn {
   appearance: none;
   cursor: pointer;
   border: 1px solid var(--border);
@@ -242,7 +243,8 @@ body {
 }
 
 #roll-btn,
-#clear-btn {
+#clear-btn,
+#shake-btn {
   width: 3rem;
   height: 3rem;
   border-radius: 0.7rem;
@@ -252,6 +254,10 @@ body {
   padding: 0;
   display: grid;
   place-items: center;
+}
+
+#shake-btn[hidden] {
+  display: none;
 }
 
 #roll-btn {
@@ -266,7 +272,8 @@ body {
   cursor: default;
 }
 
-#clear-btn {
+#clear-btn,
+#shake-btn {
   font-size: 0.72rem;
   background: transparent;
   color: var(--muted);
@@ -345,6 +352,7 @@ body {
   .die-btn,
   #roll-btn,
   #clear-btn,
+  #shake-btn,
   #color-toggle {
     width: 2.75rem;
     height: 2.75rem;

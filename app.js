@@ -25,6 +25,7 @@ const marbleToggle = document.getElementById("marble-toggle");
 const colorClose = document.getElementById("color-close");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
+const shakeButton = document.getElementById("shake-btn");
 const result = document.getElementById("result");
 const notationEl = document.getElementById("notation");
 const breakdownEl = document.getElementById("breakdown");
@@ -40,10 +41,18 @@ const counts = {
   d20: 0,
 };
 
+const SHAKE_THRESHOLD = 15;
+const SHAKE_LOCK_MS = 1000;
+const SHAKE_SAMPLE_MS = 100;
+
 let selectedColor = COLORS[0];
 let marble = false;
 let box = null;
 let rolling = false;
+let shakeWatching = false;
+let shakeRequestPending = false;
+let shakeLockedUntil = 0;
+let lastGravity = null;
 
 function totalDice() {
   return DICE_TYPES.reduce((sum, type) => sum + counts[type], 0);
@@ -367,6 +376,86 @@ function onResize() {
     box.reinit(table);
   }
 }
+
+function finiteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function motionNeedsGesture() {
+  return typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function";
+}
+
+function startShakeWatch() {
+  if (shakeWatching) {
+    return;
+  }
+  shakeWatching = true;
+  shakeButton.hidden = true;
+  window.addEventListener("devicemotion", onShake);
+}
+
+async function enableShake() {
+  if (shakeWatching || shakeRequestPending) {
+    return;
+  }
+  shakeRequestPending = true;
+  try {
+    if (motionNeedsGesture()) {
+      const state = await DeviceMotionEvent.requestPermission();
+      if (state !== "granted") {
+        shakeButton.hidden = true;
+        showStatus("Shake needs motion access.");
+        return;
+      }
+    }
+    startShakeWatch();
+  } catch {
+    shakeRequestPending = false;
+  }
+}
+
+function onShake(event) {
+  const now = Date.now();
+  const linear = event.acceleration;
+  if (linear && finiteNumber(linear.x) && finiteNumber(linear.y) && finiteNumber(linear.z)) {
+    const magnitude = Math.hypot(linear.x, linear.y, linear.z);
+    if (magnitude >= SHAKE_THRESHOLD && now >= shakeLockedUntil) {
+      shakeLockedUntil = now + SHAKE_LOCK_MS;
+      roll();
+    }
+    return;
+  }
+
+  const gravity = event.accelerationIncludingGravity;
+  if (!gravity || !finiteNumber(gravity.x) || !finiteNumber(gravity.y) || !finiteNumber(gravity.z)) {
+    return;
+  }
+  const previous = lastGravity;
+  if (!previous || now - previous.time >= SHAKE_SAMPLE_MS) {
+    if (previous && now - previous.time < 300) {
+      const delta = Math.hypot(gravity.x - previous.x, gravity.y - previous.y, gravity.z - previous.z);
+      if (delta >= SHAKE_THRESHOLD && now >= shakeLockedUntil) {
+        shakeLockedUntil = now + SHAKE_LOCK_MS;
+        roll();
+      }
+    }
+    lastGravity = { x: gravity.x, y: gravity.y, z: gravity.z, time: now };
+  }
+}
+
+function setupShake() {
+  if (typeof DeviceMotionEvent === "undefined") {
+    return;
+  }
+  if (!motionNeedsGesture()) {
+    startShakeWatch();
+    return;
+  }
+  shakeButton.hidden = false;
+  document.addEventListener("click", enableShake, true);
+}
+
+setupShake();
 
 rollButton.addEventListener("click", roll);
 clearButton.addEventListener("click", clearDice);
