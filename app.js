@@ -25,7 +25,6 @@ const marbleToggle = document.getElementById("marble-toggle");
 const colorClose = document.getElementById("color-close");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
-const shakeButton = document.getElementById("shake-btn");
 const result = document.getElementById("result");
 const notationEl = document.getElementById("notation");
 const breakdownEl = document.getElementById("breakdown");
@@ -59,10 +58,22 @@ function totalDice() {
   return DICE_TYPES.reduce((sum, type) => sum + counts[type], 0);
 }
 
-function buildNotation() {
-  return DICE_TYPES.filter((type) => counts[type] > 0)
-    .map((type) => `${counts[type]}${type}`)
-    .join("+");
+function selectedDice() {
+  const dice = [];
+  for (const type of DICE_TYPES) {
+    for (let count = 0; count < counts[type]; count += 1) {
+      dice.push(type);
+    }
+  }
+  return dice;
+}
+
+function appearance() {
+  return {
+    dice: selectedColor.dice,
+    label: selectedColor.label,
+    marble,
+  };
 }
 
 function readCookie(name) {
@@ -177,17 +188,23 @@ function renderSwatches() {
   }
 }
 
-function resetDiceTable() {
-  window.DICE.clearMaterialCache();
-  table.replaceChildren();
-  box = null;
+function applyAppearance() {
+  if (!box) {
+    return;
+  }
+  const changed = box.setAppearance(appearance());
+  if (!changed || !rolling) {
+    return;
+  }
+  rolling = false;
+  renderPicker();
 }
 
 function applyDiceColor(color) {
   selectedColor = color;
   colorDot.style.backgroundColor = color.dice;
   writeColorCookie(color);
-  resetDiceTable();
+  applyAppearance();
   renderSwatches();
   renderPicker();
 }
@@ -196,7 +213,7 @@ function applyMarble(enabled) {
   marble = enabled;
   marbleToggle.checked = enabled;
   writeMarbleCookie(enabled);
-  resetDiceTable();
+  applyAppearance();
 }
 
 function closeColorPanel() {
@@ -297,29 +314,18 @@ function syncUrl() {
   window.history.replaceState(null, "", next);
 }
 
-function configureDice() {
-  if (!window.DICE?.vars) {
+function getBox() {
+  if (!window.DICE?.dice_box) {
     throw new Error("The dice library did not load.");
   }
-  window.DICE.vars.dice_color = selectedColor.dice;
-  window.DICE.vars.label_color = selectedColor.label;
-  window.DICE.vars.label_font = "Cinzel";
-  window.DICE.vars.desk_color = "#14241c";
-  window.DICE.vars.desk_opacity = 0;
-  window.DICE.vars.use_marble = marble;
-  window.DICE.clearMaterialCache();
-}
-
-function getBox() {
   if (box) {
     return box;
   }
   if (!table.clientWidth || !table.clientHeight) {
     throw new Error("The table has no room for the dice.");
   }
-  configureDice();
-  table.replaceChildren();
   box = new window.DICE.dice_box(table);
+  box.setAppearance(appearance());
   return box;
 }
 
@@ -331,11 +337,8 @@ function showResult(notation) {
 }
 
 function roll() {
-  const notation = buildNotation();
-  if (!notation) {
-    return;
-  }
-  if (rolling) {
+  const dice = selectedDice();
+  if (dice.length === 0 || rolling) {
     return;
   }
 
@@ -346,14 +349,10 @@ function roll() {
 
   try {
     const tableBox = getBox();
-    tableBox.setDice(notation);
-    tableBox.start_throw(null, (thrown) => {
+    tableBox.setDice(dice);
+    tableBox.start_throw((thrown) => {
       rolling = false;
       renderPicker();
-      if (thrown.error) {
-        fail(new Error("The dice notation could not be read."));
-        return;
-      }
       showResult(thrown);
     });
   } catch (error) {
@@ -381,7 +380,6 @@ function startShakeWatch() {
     return;
   }
   shakeWatching = true;
-  shakeButton.hidden = true;
   window.addEventListener("devicemotion", onShake);
 }
 
@@ -392,11 +390,10 @@ async function enableShake() {
   shakeRequestPending = true;
   try {
     const state = await DeviceMotionEvent.requestPermission();
-    if (state !== "granted") {
-      shakeButton.hidden = true;
-      showStatus("Shake needs motion access.");
-      return;
-    }
+      if (state !== "granted") {
+        showStatus("Shake needs motion access.");
+        return;
+      }
     startShakeWatch();
   } catch {
     shakeRequestPending = false;
@@ -438,7 +435,6 @@ function setupShake() {
     startShakeWatch();
     return;
   }
-  shakeButton.hidden = false;
   document.addEventListener("click", enableShake, true);
 }
 

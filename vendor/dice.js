@@ -26,34 +26,14 @@
 const DICE = (function() {
     var that = {};
 
-    // Utility functions ($t replacements)
-    var $t = {
-        bind: function(element, events, callback) {
-            if (typeof events === 'string') {
-                events = [events];
+    function copyto(target, source) {
+        for (var key in source) {
+            if (source.hasOwnProperty(key)) {
+                target[key] = source[key];
             }
-            for (var i = 0; i < events.length; i++) {
-                element.addEventListener(events[i], callback);
-            }
-        },
-        get_mouse_coords: function(ev) {
-            var rect = ev.target.getBoundingClientRect();
-            var clientX = ev.clientX || (ev.touches && ev.touches[0] ? ev.touches[0].clientX : 0);
-            var clientY = ev.clientY || (ev.touches && ev.touches[0] ? ev.touches[0].clientY : 0);
-            return {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
-        },
-        copyto: function(target, source) {
-            for (var key in source) {
-                if (source.hasOwnProperty(key)) {
-                    target[key] = source[key];
-                }
-            }
-            return target;
         }
-    };
+        return target;
+    }
 
     var vars = { //todo: make these configurable on init
         frame_rate: 1 / 60,
@@ -65,14 +45,14 @@ const DICE = (function() {
             shininess: 40,
             shading: THREE.FlatShading,
         },
-        label_color: '#aaaaaa', //numbers on dice
-        dice_color: '#202020',
+        label_color: '#c4a15a',
+        dice_color: '#1a1a1a',
         label_font: 'Cinzel',
         use_marble: false,
         ambient_light_color: 0xf0f0f0,
         spot_light_color: 0xefefef,
-        desk_color: '#101010', //canvas background
-        desk_opacity: 0.5,
+        desk_color: '#14241c',
+        desk_opacity: 0,
         use_shadows: true,
         use_adapvite_timestep: true //todo: setting this to false improves performace a lot. but the dice rolls don't look as natural...
 
@@ -106,7 +86,7 @@ const DICE = (function() {
         this.dices = [];
         this.scene = new THREE.Scene();
         this.world = new CANNON.World();
-        this.diceToRoll = ''; //user input
+        this.dice = [];
         this.container = container;
 
         this.renderer = window.WebGLRenderingContext
@@ -234,84 +214,67 @@ const DICE = (function() {
         this.renderer.render(this.scene, this.camera);
     }
 
-    // @param diceToRoll (string), ex: "1d100+1d10+1d4+1d6+1d8+1d12+1d20"
-    that.dice_box.prototype.setDice = function(diceToRoll) {
-        this.diceToRoll = diceToRoll;
+    that.dice_box.prototype.setDice = function(dice) {
+        this.dice = dice.slice();
     }
 
-    //call this to roll dice programatically or from click
-    that.dice_box.prototype.start_throw = function(before_roll, after_roll) {
-        var box = this;
-        if (box.rolling) return;
+    that.dice_box.prototype.setAppearance = function(appearance) {
+        if (appearance.dice === vars.dice_color &&
+                appearance.label === vars.label_color &&
+                appearance.marble === vars.use_marble) {
+            return false;
+        }
+        vars.dice_color = appearance.dice;
+        vars.label_color = appearance.label;
+        vars.use_marble = appearance.marble;
+        clearMaterials();
+        this.rolling = false;
+        this.clear();
+        return true;
+    }
 
-        var vector = { x: (rnd() * 2 - 1) * box.w, y: -(rnd() * 2 - 1) * box.h };
+    that.dice_box.prototype.start_throw = function(after_roll) {
+        if (this.rolling) return;
+
+        var vector = { x: (rnd() * 2 - 1) * this.w, y: -(rnd() * 2 - 1) * this.h };
         var dist = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
         var boost = (rnd() + 3) * dist;
-        throw_dices(box, vector, boost, dist, before_roll, after_roll);
+        throw_dices(this, vector, boost, dist, after_roll);
     }
 
-    //call this to roll dice from swipe (will throw dice in direction swiped)
-    that.dice_box.prototype.bind_swipe = function(container, before_roll, after_roll) {
-        let box = this;
-        $t.bind(container, ['mousedown', 'touchstart'], function(ev) {
-            ev.preventDefault();
-            box.mouse_time = (new Date()).getTime();
-            box.mouse_start = $t.get_mouse_coords(ev);
-        });
-        $t.bind(container, ['mouseup', 'touchend'], function(ev) {
-            if (box.rolling) return; 
-            if (box.mouse_start == undefined) return;
-            var m = $t.get_mouse_coords(ev);
-            var vector = { x: m.x - box.mouse_start.x, y: -(m.y - box.mouse_start.y) };
-            box.mouse_start = undefined;
-            var dist = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
-            if (dist < Math.sqrt(box.w * box.h * 0.01)) return;
-            var time_int = (new Date()).getTime() - box.mouse_time;
-            if (time_int > 2000) time_int = 2000;
-            var boost = Math.sqrt((2500 - time_int) / 2500) * dist * 2;           
-            throw_dices(box, vector, boost, dist, before_roll, after_roll);
-        });
+    function notation_for(dice) {
+        return {
+            set: dice.slice(),
+            constant: 0,
+            result: [],
+            resultTotal: 0,
+            resultString: '',
+            error: false
+        };
     }
 
-    function throw_dices(box, vector, boost, dist, before_roll, after_roll) {
+    function throw_dices(box, vector, boost, dist, after_roll) {
         var uat = vars.use_adapvite_timestep;
 
         vector.x /= dist; vector.y /= dist;
-        var notation = that.parse_notation(box.diceToRoll);
+        var notation = notation_for(box.dice);
         if (notation.set.length == 0) return;
-        //TODO: how do large numbers of vectors affect performance?
         var vectors = box.generate_vectors(notation, vector, boost);
         box.rolling = true;
-        let request_results = null;        
+        box.roll(vectors, undefined, function(result) {
+            notation.result = result;
+            var res = result.join(' ');
+            notation.resultTotal = result.reduce(function(s, a) { return s + a; }, 0);
+            if (result.length > 1) {
+                res += ' = ' + notation.resultTotal;
+            }
+            notation.resultString = res;
 
-        if (before_roll) {
-            request_results = before_roll(notation);
-        }
-        roll(request_results);
+            if (after_roll) after_roll(notation);
 
-        //@param request_results (optional) - pass in an array of desired roll results
-        //todo: when this param is used, animation isn't as smooth (uat not used?)
-        function roll(request_results) {
-            box.clear();
-            box.roll(vectors, request_results || notation.result, function(result) {
-                notation.result = result;
-                var res = result.join(' ');
-                if (notation.constant) {
-                    if (notation.constant > 0) res += ' +' + notation.constant;
-                    else res += ' -' + Math.abs(notation.constant);
-                }                
-                notation.resultTotal = (result.reduce(function(s, a) { return s + a; }) + notation.constant);
-                if (result.length > 1 || notation.constant) {
-                    res += ' = ' + notation.resultTotal;
-                }
-                notation.resultString = res;
-
-                if (after_roll) after_roll(notation);
-
-                box.rolling = false;
-                vars.use_adapvite_timestep = uat;
-            });
-        }
+            box.rolling = false;
+            vars.use_adapvite_timestep = uat;
+        });
     }
        
     //todo: the rest of these don't need to be public, but need to read the this properties
@@ -470,53 +433,6 @@ const DICE = (function() {
         this.running = (new Date()).getTime();
         this.last_time = 0;
         this.__animate(this.running);
-    }
-
-    that.dice_box.prototype.search_dice_by_mouse = function(ev) {
-        var m = $t.get_mouse_coords(ev);
-        var intersects = (new THREE.Raycaster(this.camera.position, 
-                    (new THREE.Vector3((m.x - this.cw) / this.aspect,
-                                       1 - (m.y - this.ch) / this.aspect, this.w / 9))
-                    .sub(this.camera.position).normalize())).intersectObjects(this.dices);
-        if (intersects.length) return intersects[0].object.userData;
-    }
-
-
-    // PUBLIC FUNCTIONS
-
-    //validates dice notation input
-    //notation should be in format "1d4+2d6"
-    that.parse_notation = function(notation) {
-        var no = notation.split('@');
-        var dr0 = /\s*(\d*)([a-z]+)(\d+)(\s*(\+|\-)\s*(\d+)){0,1}\s*(\+|$)/gi;
-        var dr1 = /(\b)*(\d+)(\b)*/gi;
-        var ret = { 
-            set: [], //set of dice to roll
-            constant: 0, //modifier to add to result
-            result: [], //array of results of each die
-            resultTotal: 0, //dice results + constant
-            resultString: '', //printable result
-            error: false //input errors are ignored gracefully
-        }; 
-        var res;
-        //looks at each peice of the notation and adds dice and constants to results
-        while (res = dr0.exec(no[0])) {
-            var command = res[2];
-            if (command != 'd') { ret.error = true; continue; }
-            var count = parseInt(res[1]);
-            if (res[1] == '') count = 1;
-            var type = 'd' + res[3];
-            if (CONSTS.known_types.indexOf(type) == -1) { ret.error = true; continue; }
-            while (count--) ret.set.push(type);
-            if (res[5] && res[6]) {
-                if (res[5] == '+') ret.constant += parseInt(res[6]);
-                else ret.constant -= parseInt(res[6]);
-            }
-        }
-        while (res = dr1.exec(no[1])) {
-            ret.result.push(parseInt(res[2]));
-        }
-        return ret;
     }
 
     that.stringify_notation = function(nn) {
@@ -695,7 +611,7 @@ const DICE = (function() {
         }
         var materials = [];
         for (var i = 0; i < face_labels.length; ++i)
-            materials.push(new THREE.MeshPhongMaterial($t.copyto(vars.material_options,
+            materials.push(new THREE.MeshPhongMaterial(copyto(vars.material_options,
                         { map: create_text_texture(face_labels[i], vars.label_color, vars.dice_color) })));
         return materials;
     }
@@ -729,7 +645,7 @@ const DICE = (function() {
         }
         var materials = [];
         for (var i = 0; i < labels.length; ++i)
-            materials.push(new THREE.MeshPhongMaterial($t.copyto(vars.material_options,
+            materials.push(new THREE.MeshPhongMaterial(copyto(vars.material_options,
                         { map: create_d4_text(labels[i], vars.label_color, vars.dice_color) })));
         return materials;
     }
@@ -1103,7 +1019,11 @@ const DICE = (function() {
         );
     }
     
-    that.vars = vars;
+    function clearMaterials() {
+        threeD_dice.dice_material = null;
+        threeD_dice.d4_material = null;
+        threeD_dice.d100_material = null;
+    }
 
     function clearGeometryCache() {
         threeD_dice.d4_geometry = null;
@@ -1112,16 +1032,8 @@ const DICE = (function() {
         threeD_dice.d10_geometry = null;
         threeD_dice.d12_geometry = null;
         threeD_dice.d20_geometry = null;
-        threeD_dice.d4_material = null;
-        threeD_dice.dice_material = null;
-        threeD_dice.d100_material = null;
+        clearMaterials();
     }
-
-    that.clearMaterialCache = function() {
-        threeD_dice.dice_material = null;
-        threeD_dice.d4_material = null;
-        threeD_dice.d100_material = null;
-    };
 
     return that;
 }());

@@ -87,7 +87,6 @@ body {
 .die-btn,
 #roll-btn,
 #clear-btn,
-#shake-btn,
 #color-toggle {
   appearance: none;
   cursor: pointer;
@@ -100,10 +99,6 @@ body {
   padding: 0;
   display: grid;
   place-items: center;
-}
-
-#shake-btn[hidden] {
-  display: none;
 }
 
 .die-btn:disabled {
@@ -229,8 +224,7 @@ body {
 }
 
 #roll-btn,
-#clear-btn,
-#shake-btn {
+#clear-btn {
   font-family: var(--display);
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -248,8 +242,7 @@ body {
   cursor: default;
 }
 
-#clear-btn,
-#shake-btn {
+#clear-btn {
   font-size: 0.72rem;
   background: transparent;
   color: var(--muted);
@@ -328,7 +321,6 @@ body {
   .die-btn,
   #roll-btn,
   #clear-btn,
-  #shake-btn,
   #color-toggle {
     width: 2.75rem;
     height: 2.75rem;

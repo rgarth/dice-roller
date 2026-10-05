@@ -20,7 +20,7 @@
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=shake" />
+    <link rel="stylesheet" href="styles.css?v=box-api" />
   </head>
   <body>
     <div id="table" aria-hidden="true"></div>
@@ -36,7 +36,6 @@
       </div>
       <button id="roll-btn" type="button" disabled>Roll</button>
       <button id="clear-btn" type="button" disabled>Clear</button>
-      <button id="shake-btn" type="button" hidden title="Allow a shake to roll the dice">Shake</button>
     </aside>
 
     <div id="color-panel" class="color-panel" hidden>
@@ -61,7 +60,7 @@
 
     <script src="vendor/three.min.js"></script>
     <script src="vendor/cannon.min.js"></script>
-    <script src="vendor/dice.js?v=fit-width2"></script>
-    <script src="app.js?v=shake"></script>
+    <script src="vendor/dice.js?v=box-api"></script>
+    <script src="app.js?v=no-shake-btn"></script>
   </body>
 </html>
