@@ -23,6 +23,7 @@
  * - adding 'd9' option (d10 to be added to d100 properly)
  * - draw with Three.js r186 buffer geometry
  * - sample marble colour from inside the die
+ * - round the bevel so the edge is a curve, not a flat cut
  */
 
 const DICE = (function() {
@@ -642,6 +643,7 @@ const DICE = (function() {
         for (var i = 0; i < face_labels.length; ++i) {
             var material = new THREE.MeshPhongMaterial(copyto(vars.material_options,
                         { map: create_text_texture(face_labels[i], vars.label_color, vars.dice_color) }));
+            if (i === 0) material.flatShading = false;
             if (seed) bind_solid_stone(material, seed);
             materials.push(material);
         }
@@ -672,6 +674,7 @@ const DICE = (function() {
         for (var i = 0; i < labels.length; ++i) {
             var material = new THREE.MeshPhongMaterial(copyto(vars.material_options,
                         { map: create_d4_text(labels[i], vars.label_color, vars.dice_color) }));
+            if (i === 0) material.flatShading = false;
             if (seed) bind_solid_stone(material, seed);
             materials.push(material);
         }
@@ -681,7 +684,7 @@ const DICE = (function() {
     function create_d4_geometry(radius) {
         var vertices = [[1, 1, 1], [-1, -1, 1], [-1, 1, -1], [1, -1, -1]];
         var faces = [[1, 0, 2, 1], [0, 1, 3, 2], [0, 3, 2, 3], [1, 2, 3, 4]];
-        return create_geom(vertices, faces, radius, -0.1, Math.PI * 7 / 6, 0.96);
+        return create_geom(vertices, faces, radius, -0.1, Math.PI * 7 / 6, 0.90);
     }
 
     function create_d6_geometry(radius) {
@@ -689,14 +692,14 @@ const DICE = (function() {
                 [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
         var faces = [[0, 3, 2, 1, 1], [1, 2, 6, 5, 2], [0, 1, 5, 4, 3],
                 [3, 7, 6, 2, 4], [0, 4, 7, 3, 5], [4, 5, 6, 7, 6]];
-        return create_geom(vertices, faces, radius, 0.1, Math.PI / 4, 0.96);
+        return create_geom(vertices, faces, radius, 0.1, Math.PI / 4, 0.88);
     }
 
     function create_d8_geometry(radius) {
         var vertices = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
         var faces = [[0, 2, 4, 1], [0, 4, 3, 2], [0, 3, 5, 3], [0, 5, 2, 4], [1, 3, 4, 5],
                 [1, 4, 2, 6], [1, 2, 5, 7], [1, 5, 3, 8]];
-        return create_geom(vertices, faces, radius, 0, -Math.PI / 4 / 2, 0.965);
+        return create_geom(vertices, faces, radius, 0, -Math.PI / 4 / 2, 0.88);
     }
 
     function create_d10_geometry(radius) {
@@ -709,7 +712,7 @@ const DICE = (function() {
                 [8, 6, 10, 5], [9, 1, 11, 6], [2, 0, 10, 7], [3, 5, 11, 8], [6, 4, 10, 9],
                 [1, 0, 2, v], [1, 2, 3, v], [3, 2, 4, v], [3, 4, 5, v], [5, 4, 6, v],
                 [5, 6, 7, v], [7, 6, 8, v], [7, 8, 9, v], [9, 8, 0, v], [9, 0, 1, v]];
-        return create_geom(vertices, faces, radius, 0, Math.PI * 6 / 5, 0.945);
+        return create_geom(vertices, faces, radius, 0, Math.PI * 6 / 5, 0.89);
     }
 
     function create_d12_geometry(radius) {
@@ -721,7 +724,7 @@ const DICE = (function() {
         var faces = [[2, 14, 4, 12, 0, 1], [15, 9, 11, 19, 3, 2], [16, 10, 17, 7, 6, 3], [6, 7, 19, 11, 18, 4],
                 [6, 18, 2, 0, 16, 5], [18, 11, 9, 14, 2, 6], [1, 17, 10, 8, 13, 7], [1, 13, 5, 15, 3, 8],
                 [13, 8, 12, 4, 5, 9], [5, 4, 14, 9, 15, 10], [0, 12, 8, 10, 16, 11], [3, 19, 7, 17, 1, 12]];
-        return create_geom(vertices, faces, radius, 0.2, -Math.PI / 4 / 2, 0.968);
+        return create_geom(vertices, faces, radius, 0.2, -Math.PI / 4 / 2, 0.88);
     }
 
     function create_d20_geometry(radius) {
@@ -734,7 +737,7 @@ const DICE = (function() {
                 [3, 9, 4, 11], [3, 4, 2, 12], [3, 2, 6, 13], [3, 6, 8, 14], [3, 8, 9, 15],
                 [4, 9, 5, 16], [2, 4, 11, 17], [6, 2, 10, 18], [8, 6, 7, 19], [9, 8, 1, 20]];
         number_d20_canonically(faces, vertices);
-        return create_geom(vertices, faces, radius, -0.2, -Math.PI / 4 / 2, 0.955);
+        return create_geom(vertices, faces, radius, -0.2, -Math.PI / 4 / 2, 0.88);
     }
 
     // Chessex-style d20: opposites sum to 21, and 2/8/14 sit on the three
@@ -877,11 +880,16 @@ const DICE = (function() {
 
     function make_geom(vertices, faces, radius, tab, af) {
         var positions = [];
+        var normals = [];
         var uvs = [];
         var faceRecords = [];
         var geom = new THREE.BufferGeometry();
         for (var i = 0; i < vertices.length; ++i) {
             vertices[i].multiplyScalar(radius);
+        }
+        function pushNormal(vertex, faceNormal) {
+            var n = vertex.userNormal || faceNormal;
+            normals.push(n.x, n.y, n.z);
         }
         var vertexCount = 0;
         for (var i = 0; i < faces.length; ++i) {
@@ -893,20 +901,26 @@ const DICE = (function() {
                 var a = vertices[ii[0]];
                 var b = vertices[ii[j + 1]];
                 var c = vertices[ii[j + 2]];
+                var faceNormal = new THREE.Vector3().subVectors(c, b).cross(
+                    new THREE.Vector3().subVectors(a, b)
+                );
+                if (faceNormal.lengthSq() < 1e-12) faceNormal.set(0, 0, 1);
+                else faceNormal.normalize();
                 positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+                pushNormal(a, faceNormal);
+                pushNormal(b, faceNormal);
+                pushNormal(c, faceNormal);
                 var uvA = face_uv(af, tab);
                 var uvB = face_uv(aa * (j + 1) + af, tab);
                 var uvC = face_uv(aa * (j + 2) + af, tab);
                 uvs.push(uvA[0], uvA[1], uvB[0], uvB[1], uvC[0], uvC[1]);
-                var cb = new THREE.Vector3().subVectors(c, b);
-                var ab = new THREE.Vector3().subVectors(a, b);
-                cb.cross(ab).normalize();
-                faceRecords.push({ materialIndex: materialIndex, normal: cb });
+                faceRecords.push({ materialIndex: materialIndex, normal: faceNormal });
                 vertexCount += 3;
             }
             if (vertexCount > start) geom.addGroup(start, vertexCount - start, materialIndex);
         }
         geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geom.boundingSphere = new THREE.Sphere(new THREE.Vector3(), radius);
         geom.faces = faceRecords;
@@ -915,14 +929,18 @@ const DICE = (function() {
 
     function chamfer_geom(vectors, faces, chamfer) {
         var chamfer_vectors = [], chamfer_faces = [], corner_faces = new Array(vectors.length);
+        var sources = [], originals = [];
         for (var i = 0; i < vectors.length; ++i) corner_faces[i] = [];
         for (var i = 0; i < faces.length; ++i) {
             var ii = faces[i], fl = ii.length - 1;
             var center_point = new THREE.Vector3();
             var face = new Array(fl);
             for (var j = 0; j < fl; ++j) {
-                var vv = vectors[ii[j]].clone();
-                center_point.add(vv);
+                var original = vectors[ii[j]].clone();
+                var vv = original.clone();
+                center_point.add(original);
+                sources.push(ii[j]);
+                originals.push(original);
                 corner_faces[ii[j]].push(face[j] = chamfer_vectors.push(vv) - 1);
             }
             center_point.divideScalar(fl);
@@ -933,6 +951,7 @@ const DICE = (function() {
             face.push(ii[fl]);
             chamfer_faces.push(face);
         }
+        var edgeStart = chamfer_faces.length;
         for (var i = 0; i < faces.length - 1; ++i) {
             for (var j = i + 1; j < faces.length; ++j) {
                 var pairs = [], lastm = -1;
@@ -951,6 +970,7 @@ const DICE = (function() {
                         chamfer_faces[pairs[2][0]][pairs[2][1]], -1]);
             }
         }
+        var cornerStart = chamfer_faces.length;
         for (var i = 0; i < corner_faces.length; ++i) {
             var cf = corner_faces[i], face = [cf[0]], count = cf.length - 1;
             while (count) {
@@ -970,7 +990,143 @@ const DICE = (function() {
             face.push(-1);
             chamfer_faces.push(face);
         }
-        return { vectors: chamfer_vectors, faces: chamfer_faces };
+        return {
+            vectors: chamfer_vectors,
+            faces: chamfer_faces,
+            sources: sources,
+            originals: originals,
+            edgeStart: edgeStart,
+            cornerStart: cornerStart
+        };
+    }
+
+    function fillet_chamfer(cg, steps) {
+        var outV = [];
+        var outF = [];
+        var endpoint = {};
+        var vertNormal = new Array(cg.vectors.length);
+
+        function addVertex(position, normal) {
+            var v = position.clone();
+            v.userNormal = normal ? normal.clone() : null;
+            outV.push(v);
+            return outV.length - 1;
+        }
+
+        function faceNormal(face) {
+            var a = cg.vectors[face[0]];
+            var b = cg.vectors[face[1]];
+            var c = cg.vectors[face[2]];
+            var n = new THREE.Vector3().subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b));
+            if (n.lengthSq() < 1e-12) return new THREE.Vector3(0, 1, 0);
+            return n.normalize();
+        }
+
+        function blendNormal(n0, n1, t) {
+            var n = new THREE.Vector3().lerpVectors(n0, n1, t);
+            if (n.lengthSq() < 1e-12) return n0.clone();
+            return n.normalize();
+        }
+
+        function bezier(a, control, b, t) {
+            var u = 1 - t;
+            return new THREE.Vector3()
+                .addScaledVector(a, u * u)
+                .addScaledVector(control, 2 * u * t)
+                .addScaledVector(b, t * t);
+        }
+
+        for (var i = 0; i < cg.edgeStart; i++) {
+            var face = cg.faces[i];
+            var n = faceNormal(face);
+            var nf = [];
+            for (var j = 0; j < face.length - 1; j++) {
+                vertNormal[face[j]] = n;
+                nf.push(addVertex(cg.vectors[face[j]], null));
+            }
+            nf.push(face[face.length - 1]);
+            outF.push(nf);
+        }
+
+        function endPoint(index) {
+            if (endpoint[index] == null) {
+                endpoint[index] = addVertex(cg.vectors[index], vertNormal[index]);
+            }
+            return endpoint[index];
+        }
+
+        var rails = {};
+        function railKey(a, b) {
+            return a < b ? a + ',' + b : b + ',' + a;
+        }
+
+        function buildRail(ia, ib) {
+            var ids = [];
+            var control = cg.originals[ia];
+            var n0 = vertNormal[ia];
+            var n1 = vertNormal[ib];
+            for (var s = 0; s <= steps; s++) {
+                var t = s / steps;
+                if (s === 0) ids.push(endPoint(ia));
+                else if (s === steps) ids.push(endPoint(ib));
+                else ids.push(addVertex(
+                    bezier(cg.vectors[ia], control, cg.vectors[ib], t),
+                    blendNormal(n0, n1, t)
+                ));
+            }
+            rails[railKey(ia, ib)] = { a: ia, b: ib, ids: ids };
+            return ids;
+        }
+
+        for (var e = cg.edgeStart; e < cg.cornerStart; e++) {
+            var edge = cg.faces[e];
+            if (edge.length < 5) continue;
+            if (!vertNormal[edge[0]] || !vertNormal[edge[1]]) continue;
+            var row0 = buildRail(edge[0], edge[1]);
+            var row1 = buildRail(edge[3], edge[2]);
+            for (var s = 0; s < steps; s++) {
+                outF.push([row0[s], row0[s + 1], row1[s + 1], row1[s], -1]);
+            }
+        }
+
+        for (var c = cg.cornerStart; c < cg.faces.length; c++) {
+            var corner = cg.faces[c];
+            var count = corner.length - 1;
+            if (count < 3 || corner[0] == null) continue;
+            var loop = [];
+            for (var k = 0; k < count; k++) {
+                var ia = corner[k];
+                var ib = corner[(k + 1) % count];
+                if (ia == null || ib == null) continue;
+                var rail = rails[railKey(ia, ib)];
+                var ids;
+                if (!rail) {
+                    ids = [endPoint(ia), endPoint(ib)];
+                } else if (rail.a === ia) {
+                    ids = rail.ids;
+                } else {
+                    ids = rail.ids.slice().reverse();
+                }
+                for (var s = 0; s < ids.length - 1; s++) loop.push(ids[s]);
+            }
+            if (loop.length < 3) continue;
+            var sharp = cg.originals[corner[0]];
+            var avg = new THREE.Vector3();
+            var cn = new THREE.Vector3();
+            for (var k = 0; k < loop.length; k++) {
+                avg.add(outV[loop[k]]);
+                if (outV[loop[k]].userNormal) cn.add(outV[loop[k]].userNormal);
+            }
+            avg.multiplyScalar(1 / loop.length);
+            if (cn.lengthSq() < 1e-12) cn.copy(sharp);
+            var center = avg.clone().lerp(sharp, 0.42);
+            var cIdx = addVertex(center, cn.normalize());
+            for (var k = 0; k < loop.length; k++) {
+                outF.push([loop[k], loop[(k + 1) % loop.length], cIdx, -1]);
+            }
+        }
+
+        return { vectors: outV, faces: outF };
     }
 
     function create_geom(vertices, faces, radius, tab, af, chamfer) {
@@ -979,7 +1135,8 @@ const DICE = (function() {
             vectors[i] = (new THREE.Vector3).fromArray(vertices[i]).normalize();
         }
         var cg = chamfer_geom(vectors, faces, chamfer);
-        var geom = make_geom(cg.vectors, cg.faces, radius, tab, af);
+        var rounded = fillet_chamfer(cg, 4);
+        var geom = make_geom(rounded.vectors, rounded.faces, radius, tab, af);
         //var geom = make_geom(vectors, faces, radius, tab, af); // Without chamfer
         geom.cannon_shape = create_shape(vectors, faces, radius);
         return geom;
