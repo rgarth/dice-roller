@@ -13,5 +13,5 @@ function loadScript(src) {
 }
 
 await loadScript("vendor/cannon.min.js");
-await loadScript("vendor/dice.js?v=light5");
+await loadScript("vendor/dice.js?v=solid2");
 await loadScript("app.js?v=preview-data");

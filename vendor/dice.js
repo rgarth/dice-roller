@@ -22,6 +22,7 @@
  * - adding roll results to notation returned in after_roll callback
  * - adding 'd9' option (d10 to be added to d100 properly)
  * - draw with Three.js r186 buffer geometry
+ * - sample marble colour from inside the die
  */
 
 const DICE = (function() {
@@ -512,77 +513,111 @@ const DICE = (function() {
         return new THREE.Mesh(this.d10_geometry, this.d100_material);
     }
     
-    function hex_to_rgb(hex) {
-        var h = String(hex).replace('#', '');
-        if (h.length === 3) {
-            h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    var SOLID_STONE_GLSL = [
+        'float solidHash(vec3 p) {',
+        '    p = fract(p * 0.1031);',
+        '    p += dot(p, p.zyx + 31.32);',
+        '    return fract((p.x + p.y) * p.z);',
+        '}',
+        'float solidNoise(vec3 p) {',
+        '    vec3 i = floor(p);',
+        '    vec3 f = fract(p);',
+        '    f = f * f * (3.0 - 2.0 * f);',
+        '    float n000 = solidHash(i);',
+        '    float n100 = solidHash(i + vec3(1.0, 0.0, 0.0));',
+        '    float n010 = solidHash(i + vec3(0.0, 1.0, 0.0));',
+        '    float n110 = solidHash(i + vec3(1.0, 1.0, 0.0));',
+        '    float n001 = solidHash(i + vec3(0.0, 0.0, 1.0));',
+        '    float n101 = solidHash(i + vec3(1.0, 0.0, 1.0));',
+        '    float n011 = solidHash(i + vec3(0.0, 1.0, 1.0));',
+        '    float n111 = solidHash(i + vec3(1.0, 1.0, 1.0));',
+        '    return mix(',
+        '        mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),',
+        '        mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),',
+        '        f.z);',
+        '}',
+        'float solidFbm(vec3 p) {',
+        '    float v = 0.0;',
+        '    float a = 0.5;',
+        '    for (int i = 0; i < 4; i++) {',
+        '        v += a * solidNoise(p);',
+        '        p = p * 2.03 + vec3(1.7, 9.2, 3.4);',
+        '        a *= 0.5;',
+        '    }',
+        '    return v;',
+        '}',
+        'vec3 solidStone(vec3 p) {',
+        '    vec3 q = p / solidScale + solidSeed;',
+        '    float n = solidFbm(q * 3.2);',
+        '    float cloud = solidFbm(q * 1.4 + vec3(5.2, 1.3, 2.8));',
+        '    float luma = dot(stoneColor, vec3(0.2126, 0.7152, 0.0722));',
+        '    float lift = mix(3.6, 1.35, smoothstep(0.02, 0.35, luma));',
+        '    vec3 pale = min(stoneColor * lift, vec3(1.0));',
+        '    vec3 dark = stoneColor * 0.38;',
+        '    vec3 body = mix(dark, pale, cloud);',
+        '    float vein = pow(1.0 - abs(sin(dot(q, vec3(7.5, 1.6, 0.9)) + (n - 0.5) * 6.5)), 5.0);',
+        '    float shade = pow(1.0 - abs(sin(dot(q, vec3(-1.4, 6.8, 2.1)) + n * 4.0)), 12.0);',
+        '    body = mix(body, pale, vein);',
+        '    body = mix(body, dark, shade * 0.8);',
+        '    return body;',
+        '}'
+    ].join('\n');
+
+    var SOLID_STONE_MAP = [
+        'vec3 stone = solidStone(vSolidPos);',
+        'float coverage = texture2D(map, vMapUv).r;',
+        'diffuseColor.rgb = mix(stone, solidLabel, coverage) * diffuseColor.rgb;'
+    ].join('\n');
+
+    function bind_solid_stone(material, seed) {
+        var stone = new THREE.Color(vars.dice_color);
+        var ink = new THREE.Color(vars.label_color);
+        var scale = vars.scale;
+        material.customProgramCacheKey = function () { return 'solid-stone'; };
+        material.onBeforeCompile = function (shader) {
+            shader.uniforms.stoneColor = { value: stone };
+            shader.uniforms.solidLabel = { value: ink };
+            shader.uniforms.solidSeed = { value: seed };
+            shader.uniforms.solidScale = { value: scale };
+            shader.vertexShader = shader.vertexShader
+                .replace(
+                    '#define PHONG\nvarying vec3 vViewPosition;',
+                    '#define PHONG\nvarying vec3 vViewPosition;\nvarying vec3 vSolidPos;'
+                )
+                .replace(
+                    '#include <begin_vertex>',
+                    '#include <begin_vertex>\n\tvSolidPos = transformed;'
+                );
+            shader.fragmentShader = shader.fragmentShader
+                .replace(
+                    '#define PHONG\nuniform vec3 diffuse;',
+                    '#define PHONG\nuniform vec3 diffuse;\nvarying vec3 vSolidPos;\nuniform vec3 stoneColor;\nuniform vec3 solidLabel;\nuniform vec3 solidSeed;\nuniform float solidScale;\n' + SOLID_STONE_GLSL
+                )
+                .replace('#include <map_fragment>', SOLID_STONE_MAP);
+            if (shader.vertexShader.indexOf('vSolidPos = transformed') < 0 ||
+                    shader.fragmentShader.indexOf('vec3 solidStone') < 0) {
+                throw new Error('Solid stone shader injection failed');
+            }
+        };
+    }
+
+    function paint_face_background(context, width, height, back_color, ink) {
+        if (vars.use_marble) {
+            context.fillStyle = '#000';
+            context.fillRect(0, 0, width, height);
+            context.fillStyle = '#fff';
+            return;
         }
-        var n = parseInt(h, 16);
-        if (isNaN(n)) return { r: 32, g: 32, b: 32 };
-        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-    }
-
-    function shade_color(rgb, amount) {
-        function channel(v) {
-            var next = amount >= 0 ? v + (255 - v) * amount : v * (1 + amount);
-            return Math.max(0, Math.min(255, Math.round(next)));
-        }
-        return 'rgb(' + channel(rgb.r) + ',' + channel(rgb.g) + ',' + channel(rgb.b) + ')';
-    }
-
-    function marble_edge_point(width, height) {
-        var edge = Math.floor(Math.random() * 4);
-        if (edge === 0) return { x: Math.random() * width, y: 0 };
-        if (edge === 1) return { x: width, y: Math.random() * height };
-        if (edge === 2) return { x: Math.random() * width, y: height };
-        return { x: 0, y: Math.random() * height };
-    }
-
-    function paint_marble(context, width, height, back_color, withVeins) {
-        var base = hex_to_rgb(back_color);
-        context.save();
         context.fillStyle = back_color;
         context.fillRect(0, 0, width, height);
+        context.fillStyle = ink;
+    }
 
-        var clouds = 16;
-        for (var i = 0; i < clouds; i++) {
-            var x = Math.random() * width;
-            var y = Math.random() * height;
-            var radius = width * (0.12 + Math.random() * 0.32);
-            var gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-            gradient.addColorStop(0, shade_color(base, Math.random() > 0.5 ? 0.34 : -0.22));
-            gradient.addColorStop(1, shade_color(base, 0));
-            context.fillStyle = gradient;
-            context.beginPath();
-            context.arc(x, y, radius, 0, Math.PI * 2);
-            context.fill();
-        }
-
-        if (withVeins) {
-            context.lineCap = 'round';
-            context.lineJoin = 'round';
-            var veins = 2 + Math.floor(Math.random() * 2);
-            for (var v = 0; v < veins; v++) {
-                var start = marble_edge_point(width, height);
-                var end = marble_edge_point(width, height);
-                var bright = Math.random() > 0.45;
-                context.beginPath();
-                context.moveTo(start.x, start.y);
-                context.quadraticCurveTo(
-                    width * (0.15 + Math.random() * 0.7),
-                    height * (0.15 + Math.random() * 0.7),
-                    end.x,
-                    end.y
-                );
-                context.strokeStyle = shade_color(base, bright ? 0.55 : -0.4);
-                context.shadowColor = context.strokeStyle;
-                context.shadowBlur = width * 0.035;
-                context.globalAlpha = 0.55;
-                context.lineWidth = Math.max(3, width * 0.028);
-                context.stroke();
-            }
-        }
-        context.restore();
+    function face_texture(canvas) {
+        var texture = new THREE.Texture(canvas);
+        texture.colorSpace = vars.use_marble ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+        return texture;
     }
 
     function create_dice_materials(face_labels, size, margin) {
@@ -593,28 +628,23 @@ const DICE = (function() {
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
             context.font = "400 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
-            if (vars.use_marble) {
-                paint_marble(context, canvas.width, canvas.height, back_color, text !== ' ');
-            } else {
-                context.fillStyle = back_color;
-                context.fillRect(0, 0, canvas.width, canvas.height);
-            }
+            paint_face_background(context, canvas.width, canvas.height, back_color, color);
             context.textAlign = "center";
             context.textBaseline = "middle";
-            context.fillStyle = color;
             context.fillText(text, canvas.width / 2, canvas.height / 2);
             if (text == '6' || text == '9') {
                 context.fillText('  .', canvas.width / 2, canvas.height / 2);
             }
-            var texture = new THREE.Texture(canvas);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.needsUpdate = true;
-            return texture;
+            return face_texture(canvas);
         }
         var materials = [];
-        for (var i = 0; i < face_labels.length; ++i)
-            materials.push(new THREE.MeshPhongMaterial(copyto(vars.material_options,
-                        { map: create_text_texture(face_labels[i], vars.label_color, vars.dice_color) })));
+        var seed = vars.use_marble ? new THREE.Vector3(rnd() * 80, rnd() * 80, rnd() * 80) : null;
+        for (var i = 0; i < face_labels.length; ++i) {
+            var material = new THREE.MeshPhongMaterial(copyto(vars.material_options,
+                        { map: create_text_texture(face_labels[i], vars.label_color, vars.dice_color) }));
+            if (seed) bind_solid_stone(material, seed);
+            materials.push(material);
+        }
         return materials;
     }
 
@@ -625,15 +655,9 @@ const DICE = (function() {
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
             context.font = "400 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
-            if (vars.use_marble) {
-                paint_marble(context, canvas.width, canvas.height, back_color, true);
-            } else {
-                context.fillStyle = back_color;
-                context.fillRect(0, 0, canvas.width, canvas.height);
-            }
+            paint_face_background(context, canvas.width, canvas.height, back_color, color);
             context.textAlign = "center";
             context.textBaseline = "middle";
-            context.fillStyle = color;
             for (var i in text) {
                 context.fillText(text[i], canvas.width / 2,
                         canvas.height / 2 - ts * 0.3);
@@ -641,15 +665,16 @@ const DICE = (function() {
                 context.rotate(Math.PI * 2 / 3);
                 context.translate(-canvas.width / 2, -canvas.height / 2);
             }
-            var texture = new THREE.Texture(canvas);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.needsUpdate = true;
-            return texture;
+            return face_texture(canvas);
         }
         var materials = [];
-        for (var i = 0; i < labels.length; ++i)
-            materials.push(new THREE.MeshPhongMaterial(copyto(vars.material_options,
-                        { map: create_d4_text(labels[i], vars.label_color, vars.dice_color) })));
+        var seed = vars.use_marble ? new THREE.Vector3(rnd() * 80, rnd() * 80, rnd() * 80) : null;
+        for (var i = 0; i < labels.length; ++i) {
+            var material = new THREE.MeshPhongMaterial(copyto(vars.material_options,
+                        { map: create_d4_text(labels[i], vars.label_color, vars.dice_color) }));
+            if (seed) bind_solid_stone(material, seed);
+            materials.push(material);
+        }
         return materials;
     }
 
