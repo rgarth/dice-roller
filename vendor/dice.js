@@ -21,6 +21,7 @@
  * - adding sound effect
  * - adding roll results to notation returned in after_roll callback
  * - adding 'd9' option (d10 to be added to d100 properly)
+ * - draw with Three.js r186 buffer geometry
  */
 
 const DICE = (function() {
@@ -43,7 +44,7 @@ const DICE = (function() {
             specular: 0x172022,
             color: 0xf0f0f0,
             shininess: 40,
-            shading: THREE.FlatShading,
+            flatShading: true,
         },
         label_color: '#c4a15a',
         dice_color: '#1a1a1a',
@@ -89,12 +90,12 @@ const DICE = (function() {
         this.dice = [];
         this.container = container;
 
-        this.renderer = window.WebGLRenderingContext
-            ? new THREE.WebGLRenderer({ antialias: true, alpha: true })
-            : new THREE.CanvasRenderer({ antialias: true, alpha: true });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         container.appendChild(this.renderer.domElement);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.25;
         this.renderer.setClearColor(0xffffff, 0); //color, alpha
 
         this.reinit(container);
@@ -103,7 +104,7 @@ const DICE = (function() {
         this.world.broadphase = new CANNON.NaiveBroadphase();
         this.world.solver.iterations = 16;
 
-        var ambientLight = new THREE.AmbientLight(vars.ambient_light_color);
+        var ambientLight = new THREE.AmbientLight(vars.ambient_light_color, 0.4);
         this.scene.add(ambientLight);
 
         this.dice_body_material = new CANNON.Material();
@@ -190,20 +191,28 @@ const DICE = (function() {
         this.camera.position.z = this.wh;
 
         var mw = Math.max(this.w, this.h);
-        if (this.light) this.scene.remove(this.light);
-        this.light = new THREE.SpotLight(vars.spot_light_color, 2.0);
+        if (this.light) {
+            this.scene.remove(this.light);
+            this.scene.remove(this.light.target);
+        }
+        if (this.fill) this.scene.remove(this.fill);
+        this.light = new THREE.SpotLight(vars.spot_light_color, 12);
+        this.light.decay = 0; // inverse-square falloff never reaches a table this large
+        this.light.penumbra = 0.45;
         this.light.position.set(-mw / 2, mw / 2, mw * 2);
         this.light.target.position.set(0, 0, 0);
         this.light.distance = mw * 5;
         this.light.castShadow = true;
-        this.light.shadowCameraNear = mw / 10;
-        this.light.shadowCameraFar = mw * 5;
-        this.light.shadowCameraFov = 50;
-        this.light.shadowBias = 0.001;
-        this.light.shadowDarkness = 1.1;
-        this.light.shadowMapWidth = 1024;
-        this.light.shadowMapHeight = 1024;
+        this.light.shadow.camera.near = mw / 10;
+        this.light.shadow.bias = 0.001;
+        this.light.shadow.mapSize.set(1024, 1024);
+        this.light.shadow.focus = 50 / (this.light.angle * (360 / Math.PI)); // r186 derives shadow fov from the cone; hold it at 50 degrees
         this.scene.add(this.light);
+        this.scene.add(this.light.target);
+
+        this.fill = new THREE.DirectionalLight(0xf7f1e4, 2.4);
+        this.fill.position.set(mw, -mw * 0.4, mw * 1.5);
+        this.scene.add(this.fill);
 
         if (this.desk) this.scene.remove(this.desk);
         this.desk = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2, 1, 1), 
@@ -457,57 +466,49 @@ const DICE = (function() {
 
     threeD_dice.create_d4 = function() {
         if (!this.d4_geometry) this.d4_geometry = create_d4_geometry(vars.scale * 1.2);
-        if (!this.d4_material) this.d4_material = new THREE.MeshFaceMaterial(
-                create_d4_materials(vars.scale / 2, vars.scale * 2, CONSTS.d4_labels[0]));
+        if (!this.d4_material) this.d4_material = create_d4_materials(vars.scale / 2, vars.scale * 2, CONSTS.d4_labels[0]);
         return new THREE.Mesh(this.d4_geometry, this.d4_material);
     }
 
     threeD_dice.create_d6 = function() {
         if (!this.d6_geometry) this.d6_geometry = create_d6_geometry(vars.scale * 1.1);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 0.9));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 0.9);
         return new THREE.Mesh(this.d6_geometry, this.dice_material);
     }
 
     threeD_dice.create_d8 = function() {
         if (!this.d8_geometry) this.d8_geometry = create_d8_geometry(vars.scale);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.4));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.4);
         return new THREE.Mesh(this.d8_geometry, this.dice_material);
     }
 
     threeD_dice.create_d9 = function() {
         if (!this.d10_geometry) this.d10_geometry = create_d10_geometry(vars.scale * 0.9);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0);
         return new THREE.Mesh(this.d10_geometry, this.dice_material);
     }
 
     threeD_dice.create_d10 = function() {
         if (!this.d10_geometry) this.d10_geometry = create_d10_geometry(vars.scale * 0.9);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0);
         return new THREE.Mesh(this.d10_geometry, this.dice_material);
     }
 
     threeD_dice.create_d12 = function() {
         if (!this.d12_geometry) this.d12_geometry = create_d12_geometry(vars.scale * 0.9);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.0);
         return new THREE.Mesh(this.d12_geometry, this.dice_material);
     }
 
     threeD_dice.create_d20 = function() {
         if (!this.d20_geometry) this.d20_geometry = create_d20_geometry(vars.scale);
-        if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.2));
+        if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 1.2);
         return new THREE.Mesh(this.d20_geometry, this.dice_material);
     }
 
     threeD_dice.create_d100 = function() {
         if (!this.d10_geometry) this.d10_geometry = create_d10_geometry(vars.scale * 0.9);
-        if (!this.d100_material) this.d100_material = new THREE.MeshFaceMaterial(
-                create_dice_materials(CONSTS.standart_d100_dice_face_labels, vars.scale / 2, 1.5));
+        if (!this.d100_material) this.d100_material = create_dice_materials(CONSTS.standart_d100_dice_face_labels, vars.scale / 2, 1.5);
         return new THREE.Mesh(this.d10_geometry, this.d100_material);
     }
     
@@ -606,6 +607,7 @@ const DICE = (function() {
                 context.fillText('  .', canvas.width / 2, canvas.height / 2);
             }
             var texture = new THREE.Texture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
             texture.needsUpdate = true;
             return texture;
         }
@@ -640,6 +642,7 @@ const DICE = (function() {
                 context.translate(-canvas.width / 2, -canvas.height / 2);
             }
             var texture = new THREE.Texture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
             texture.needsUpdate = true;
             return texture;
         }
@@ -842,29 +845,46 @@ const DICE = (function() {
         return new CANNON.ConvexPolyhedron(cv, cf);
     }
 
+    function face_uv(angle, tab) {
+        return [(Math.cos(angle) + 1 + tab) / 2 / (1 + tab),
+                (Math.sin(angle) + 1 + tab) / 2 / (1 + tab)];
+    }
+
     function make_geom(vertices, faces, radius, tab, af) {
-        var geom = new THREE.Geometry();
+        var positions = [];
+        var uvs = [];
+        var faceRecords = [];
+        var geom = new THREE.BufferGeometry();
         for (var i = 0; i < vertices.length; ++i) {
-            var vertex = vertices[i].multiplyScalar(radius);
-            vertex.index = geom.vertices.push(vertex) - 1;
+            vertices[i].multiplyScalar(radius);
         }
+        var vertexCount = 0;
         for (var i = 0; i < faces.length; ++i) {
             var ii = faces[i], fl = ii.length - 1;
             var aa = Math.PI * 2 / fl;
+            var materialIndex = ii[fl] + 1;
+            var start = vertexCount;
             for (var j = 0; j < fl - 2; ++j) {
-                geom.faces.push(new THREE.Face3(ii[0], ii[j + 1], ii[j + 2], [geom.vertices[ii[0]],
-                            geom.vertices[ii[j + 1]], geom.vertices[ii[j + 2]]], 0, ii[fl] + 1));
-                geom.faceVertexUvs[0].push([
-                        new THREE.Vector2((Math.cos(af) + 1 + tab) / 2 / (1 + tab),
-                            (Math.sin(af) + 1 + tab) / 2 / (1 + tab)),
-                        new THREE.Vector2((Math.cos(aa * (j + 1) + af) + 1 + tab) / 2 / (1 + tab),
-                            (Math.sin(aa * (j + 1) + af) + 1 + tab) / 2 / (1 + tab)),
-                        new THREE.Vector2((Math.cos(aa * (j + 2) + af) + 1 + tab) / 2 / (1 + tab),
-                            (Math.sin(aa * (j + 2) + af) + 1 + tab) / 2 / (1 + tab))]);
+                var a = vertices[ii[0]];
+                var b = vertices[ii[j + 1]];
+                var c = vertices[ii[j + 2]];
+                positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+                var uvA = face_uv(af, tab);
+                var uvB = face_uv(aa * (j + 1) + af, tab);
+                var uvC = face_uv(aa * (j + 2) + af, tab);
+                uvs.push(uvA[0], uvA[1], uvB[0], uvB[1], uvC[0], uvC[1]);
+                var cb = new THREE.Vector3().subVectors(c, b);
+                var ab = new THREE.Vector3().subVectors(a, b);
+                cb.cross(ab).normalize();
+                faceRecords.push({ materialIndex: materialIndex, normal: cb });
+                vertexCount += 3;
             }
+            if (vertexCount > start) geom.addGroup(start, vertexCount - start, materialIndex);
         }
-        geom.computeFaceNormals();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geom.boundingSphere = new THREE.Sphere(new THREE.Vector3(), radius);
+        geom.faces = faceRecords;
         return geom;
     }
 

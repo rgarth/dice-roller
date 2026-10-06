@@ -4,14 +4,14 @@ const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
 const COLOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COLORS = [
-  { name: "Onyx", dice: "#1a1a1a", label: "#c4a15a" },
-  { name: "Bone", dice: "#c4b089", label: "#1a1410", light: true },
-  { name: "Blood", dice: "#6e1512", label: "#f3efe4" },
-  { name: "Navy", dice: "#1a2c4a", label: "#f3efe4" },
-  { name: "Forest", dice: "#1c3326", label: "#c4a15a" },
-  { name: "Plum", dice: "#3a2044", label: "#f3efe4" },
-  { name: "Rose", dice: "#a24d62", label: "#f3efe4" },
-  { name: "Aqua", dice: "#2a8f8c", label: "#f3efe4" },
+  { name: "Onyx", dice: "#1a1a1a", preview: "#393939", label: "#c4a15a" },
+  { name: "Bone", dice: "#c4b089", preview: "#d8cbb2", label: "#1a1410", light: true },
+  { name: "Blood", dice: "#6e1512", preview: "#a31f1b", label: "#f3efe4" },
+  { name: "Navy", dice: "#1a2c4a", preview: "#2a4777", label: "#f3efe4" },
+  { name: "Forest", dice: "#1c3326", preview: "#325b43", label: "#c4a15a" },
+  { name: "Plum", dice: "#3a2044", preview: "#5d346e", label: "#f3efe4" },
+  { name: "Rose", dice: "#a24d62", preview: "#bb7183", label: "#f3efe4" },
+  { name: "Aqua", dice: "#2a8f8c", preview: "#38beba", label: "#f3efe4" },
 ];
 
 const table = document.getElementById("table");
@@ -143,7 +143,7 @@ function renderPicker() {
     const face = document.createElement("span");
     face.className = "die-face";
     face.textContent = type.toUpperCase();
-    face.style.backgroundColor = selectedColor.dice;
+    face.style.backgroundColor = selectedColor.preview;
     face.style.color = selectedColor.label;
     button.append(face);
     wrap.append(button);
@@ -179,7 +179,7 @@ function renderSwatches() {
     button.className = "color-swatch";
     button.title = color.name;
     button.textContent = "20";
-    button.style.backgroundColor = color.dice;
+    button.style.backgroundColor = color.preview;
     button.style.color = color.label;
     button.classList.toggle("is-current", color.dice === selectedColor.dice);
     button.classList.toggle("is-light", color.light === true);
@@ -202,7 +202,7 @@ function applyAppearance() {
 
 function applyDiceColor(color) {
   selectedColor = color;
-  colorDot.style.backgroundColor = color.dice;
+  colorDot.style.backgroundColor = color.preview;
   writeColorCookie(color);
   applyAppearance();
   renderSwatches();
