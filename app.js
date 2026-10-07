@@ -146,7 +146,7 @@ function hideStatus() {
 
 function fail(error) {
   rolling = false;
-  rollButton.disabled = totalDice() === 0;
+  renderPicker();
   const message = error instanceof Error ? error.message : String(error);
   console.error(error);
   showStatus(message);
@@ -378,6 +378,19 @@ function getBox() {
   return box;
 }
 
+function track(name, params) {
+  if (typeof window.gtag !== "function") {
+    return;
+  }
+  window.gtag("event", name, params);
+}
+
+function notationText() {
+  return DICE_TYPES.filter((type) => counts[type] > 0)
+    .map((type) => `${counts[type]}${type}`)
+    .join("+");
+}
+
 function showResult(notation) {
   const set = notation.set;
   const rolled = notation.result;
@@ -400,17 +413,7 @@ function showResult(notation) {
   totalEl.textContent = String(notation.resultTotal);
 }
 
-function roll() {
-  const dice = selectedDice();
-  if (dice.length === 0 || rolling) {
-    return;
-  }
-
-  hideStatus();
-  rolling = true;
-  rollButton.disabled = true;
-  clearButton.disabled = true;
-
+function beginThrow(dice, notation, source) {
   try {
     const tableBox = getBox();
     tableBox.setDice(dice);
@@ -418,10 +421,40 @@ function roll() {
       rolling = false;
       renderPicker();
       showResult(thrown);
+      track("roll", {
+        dice_count: dice.length,
+        notation,
+        method: source,
+      });
     });
   } catch (error) {
     fail(error);
   }
+}
+
+function roll(source = "button") {
+  const dice = selectedDice();
+  if (dice.length === 0 || rolling) {
+    return;
+  }
+
+  const notation = notationText();
+  hideStatus();
+  rolling = true;
+  rollButton.disabled = true;
+  clearButton.disabled = true;
+  colorToggle.disabled = true;
+
+  const fontsReady = document.fonts?.ready ?? Promise.resolve();
+  Promise.all([fontsReady, whenDiceReady()])
+    .then(() => {
+      if (box) {
+        beginThrow(dice, notation, source);
+        return;
+      }
+      window.requestAnimationFrame(() => beginThrow(dice, notation, source));
+    })
+    .catch((error) => fail(error));
 }
 
 function acceleration(reading) {
@@ -436,7 +469,7 @@ function rollFromShake(now) {
     return;
   }
   shakeLockedUntil = now + SHAKE_LOCK_MS;
-  roll();
+  roll("shake");
 }
 
 function startShakeWatch() {
@@ -536,6 +569,32 @@ window.addEventListener("resize", () => {
   }
 });
 
+function whenDiceReady() {
+  if (window.DICE?.dice_box) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    function finish(error) {
+      window.removeEventListener("dice-ready", onReady);
+      window.removeEventListener("dice-failed", onFailed);
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    }
+    function onReady() {
+      finish();
+    }
+    function onFailed(event) {
+      const error = event.detail instanceof Error ? event.detail : new Error("The dice library did not load.");
+      finish(error);
+    }
+    window.addEventListener("dice-ready", onReady);
+    window.addEventListener("dice-failed", onFailed);
+  });
+}
+
 function boot() {
   marble = savedMarble();
   marbleToggle.checked = marble;
@@ -548,9 +607,7 @@ function boot() {
     parseQuery(window.location.search);
     renderPicker();
     if (hadQuery && totalDice() > 0) {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(roll);
-      });
+      roll();
     }
   } catch (error) {
     renderPicker();
@@ -558,12 +615,4 @@ function boot() {
   }
 }
 
-if (document.fonts?.load) {
-  Promise.all([
-    document.fonts.load("400 64px Cinzel"),
-    document.fonts.load("700 64px Cinzel"),
-    document.fonts.ready,
-  ]).then(boot, boot);
-} else {
-  boot();
-}
+boot();

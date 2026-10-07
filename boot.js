@@ -12,6 +12,10 @@ function loadScript(src) {
   });
 }
 
-await loadScript("vendor/cannon.min.js");
-await loadScript("vendor/dice.js?v=d100s3");
-await loadScript("app.js?v=menu5");
+try {
+  await loadScript("vendor/cannon.min.js");
+  await loadScript("vendor/dice.js?v=d100s3");
+  window.dispatchEvent(new Event("dice-ready"));
+} catch (error) {
+  window.dispatchEvent(new CustomEvent("dice-failed", { detail: error }));
+}

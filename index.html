@@ -15,13 +15,69 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="styles.css?v=menu3" />
+    <script>
+      window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
+      (function () {
+        var id = window.DICE_ANALYTICS_ID;
+        if (!/^G-[A-Z0-9]+$/.test(id)) {
+          return;
+        }
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+          window.dataLayer.push(arguments);
+        }
+        window.gtag = gtag;
+        gtag("js", new Date());
+        gtag("config", id);
+        var script = document.createElement("script");
+        script.async = true;
+        script.src = "https://www.googletagmanager.com/gtag/js?id=" + id;
+        document.head.appendChild(script);
+      })();
+    </script>
   </head>
   <body>
     <div id="table" aria-hidden="true"></div>
 
     <aside class="tray" aria-label="Dice tray">
       <p class="tray-label">Tray</p>
-      <div id="dice-picker" class="picker"></div>
+      <div id="dice-picker" class="picker">
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d4">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D4</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d6">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D6</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d8">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D8</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d10">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D10</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d12">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D12</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d20">
+            <span class="die-face" style="background-color: #393939; color: #c4a15a">D20</span>
+          </button>
+        </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d100">
+            <span class="die-face is-wide" style="background-color: #393939; color: #c4a15a">D100</span>
+          </button>
+        </div>
+      </div>
       <p class="cap" id="cap">0/10</p>
       <div>
         <button id="color-toggle" type="button" title="Options" aria-expanded="false" aria-controls="color-panel">
@@ -63,6 +119,7 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script type="module" src="boot.js?v=menu5"></script>
+    <script defer src="app.js?v=menu6"></script>
+    <script type="module" src="boot.js?v=menu6"></script>
   </body>
 </html>
