@@ -329,6 +329,19 @@ function getBox() {
   return box;
 }
 
+function track(name, params) {
+  if (typeof window.gtag !== "function") {
+    return;
+  }
+  window.gtag("event", name, params);
+}
+
+function notationText() {
+  return DICE_TYPES.filter((type) => counts[type] > 0)
+    .map((type) => `${counts[type]}${type}`)
+    .join("+");
+}
+
 function showResult(notation) {
   result.hidden = false;
   notationEl.textContent = window.DICE.stringify_notation(notation);
@@ -336,12 +349,13 @@ function showResult(notation) {
   totalEl.textContent = String(notation.resultTotal);
 }
 
-function roll() {
+function roll(source = "button") {
   const dice = selectedDice();
   if (dice.length === 0 || rolling) {
     return;
   }
 
+  const notation = notationText();
   hideStatus();
   rolling = true;
   rollButton.disabled = true;
@@ -354,6 +368,11 @@ function roll() {
       rolling = false;
       renderPicker();
       showResult(thrown);
+      track("roll", {
+        dice_count: dice.length,
+        notation,
+        method: source,
+      });
     });
   } catch (error) {
     fail(error);
@@ -372,7 +391,7 @@ function rollFromShake(now) {
     return;
   }
   shakeLockedUntil = now + SHAKE_LOCK_MS;
-  roll();
+  roll("shake");
 }
 
 function startShakeWatch() {

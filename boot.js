@@ -14,4 +14,4 @@ function loadScript(src) {
 
 await loadScript("vendor/cannon.min.js");
 await loadScript("vendor/dice.js?v=round2");
-await loadScript("app.js?v=preview-data");
+await loadScript("app.js?v=analytics");
