@@ -1,7 +1,8 @@
-const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20", "d%"];
+const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20", "d100"];
 const MAX_DICE = 10;
 const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
+const HUNDRED_COOKIE = "dice_hundred";
 const COLOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COLORS = [
   { name: "Onyx", dice: "#1a1a1a", preview: "#393939", label: "#c4a15a" },
@@ -18,11 +19,12 @@ const table = document.getElementById("table");
 const picker = document.getElementById("dice-picker");
 const cap = document.getElementById("cap");
 const colorToggle = document.getElementById("color-toggle");
-const colorDot = document.getElementById("color-dot");
 const colorPanel = document.getElementById("color-panel");
 const colorSwatches = document.getElementById("color-swatches");
 const marbleToggle = document.getElementById("marble-toggle");
 const colorClose = document.getElementById("color-close");
+const hundredDie = document.getElementById("hundred-die");
+const hundredPair = document.getElementById("hundred-pair");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
 const result = document.getElementById("result");
@@ -38,7 +40,7 @@ const counts = {
   d10: 0,
   d12: 0,
   d20: 0,
-  "d%": 0,
+  d100: 0,
 };
 
 const SHAKE_THRESHOLD = 15;
@@ -48,6 +50,7 @@ const SHAKE_WINDOW_MS = 300;
 
 let selectedColor = COLORS[0];
 let marble = false;
+let hundredAsPair = false;
 let box = null;
 let rolling = false;
 let shakeWatching = false;
@@ -55,26 +58,32 @@ let shakeRequestPending = false;
 let shakeLockedUntil = 0;
 let lastGravity = null;
 
-function diceSlots(type) {
-  return type === "d%" ? 2 : 1;
+function physicalDice(type) {
+  if (type !== "d100") {
+    return [type];
+  }
+  return hundredAsPair ? ["d100", "d9"] : ["d100s"];
 }
 
 function totalDice() {
-  return DICE_TYPES.reduce((sum, type) => sum + counts[type] * diceSlots(type), 0);
+  return DICE_TYPES.reduce((sum, type) => sum + counts[type] * physicalDice(type).length, 0);
 }
 
 function selectedDice() {
   const dice = [];
   for (const type of DICE_TYPES) {
     for (let count = 0; count < counts[type]; count += 1) {
-      if (type === "d%") {
-        dice.push("d100", "d9");
-      } else {
-        dice.push(type);
-      }
+      dice.push(...physicalDice(type));
     }
   }
   return dice;
+}
+
+function selectHundred() {
+  for (const type of DICE_TYPES) {
+    counts[type] = 0;
+  }
+  counts.d100 = 1;
 }
 
 function appearance() {
@@ -117,6 +126,14 @@ function savedMarble() {
   return readCookie(MARBLE_COOKIE) === "1";
 }
 
+function savedHundredAsPair() {
+  return readCookie(HUNDRED_COOKIE) === "pair";
+}
+
+function writeHundredCookie() {
+  document.cookie = `${HUNDRED_COOKIE}=${hundredAsPair ? "pair" : "die"}${cookieSuffix()}`;
+}
+
 function showStatus(message) {
   statusEl.hidden = false;
   statusEl.textContent = message;
@@ -145,13 +162,14 @@ function renderPicker() {
     const button = document.createElement("button");
     button.className = "die-btn";
     button.type = "button";
-    button.disabled = total + diceSlots(type) > MAX_DICE;
+    button.disabled = type !== "d100" && total + physicalDice(type).length > MAX_DICE;
     button.title = `Add ${type}`;
     button.addEventListener("click", () => addDie(type));
 
     const face = document.createElement("span");
     face.className = "die-face";
     face.textContent = type.toUpperCase();
+    if (type === "d100") face.classList.add("is-wide");
     face.style.backgroundColor = selectedColor.preview;
     face.style.color = selectedColor.label;
     button.append(face);
@@ -211,7 +229,6 @@ function applyAppearance() {
 
 function applyDiceColor(color) {
   selectedColor = color;
-  colorDot.style.backgroundColor = color.preview;
   writeColorCookie(color);
   applyAppearance();
   renderSwatches();
@@ -225,8 +242,16 @@ function applyMarble(enabled) {
   applyAppearance();
 }
 
-function closeColorPanel() {
-  colorPanel.hidden = true;
+function renderHundredChoice() {
+  hundredDie.checked = !hundredAsPair;
+  hundredPair.checked = hundredAsPair;
+}
+
+function applyHundred(asPair) {
+  hundredAsPair = asPair;
+  writeHundredCookie();
+  renderHundredChoice();
+  renderPicker();
 }
 
 function positionColorPanel() {
@@ -260,7 +285,13 @@ function positionColorPanel() {
 
 function openColorPanel() {
   colorPanel.hidden = false;
+  colorToggle.setAttribute("aria-expanded", "true");
   positionColorPanel();
+}
+
+function closeColorPanel() {
+  colorPanel.hidden = true;
+  colorToggle.setAttribute("aria-expanded", "false");
 }
 
 function toggleColorPanel() {
@@ -272,10 +303,15 @@ function toggleColorPanel() {
 }
 
 function addDie(type) {
-  if (totalDice() + diceSlots(type) > MAX_DICE) {
-    return;
+  if (type === "d100") {
+    selectHundred();
+  } else {
+    counts.d100 = 0;
+    if (totalDice() + physicalDice(type).length > MAX_DICE) {
+      return;
+    }
+    counts[type] += 1;
   }
-  counts[type] += 1;
   syncUrl();
   renderPicker();
 }
@@ -305,10 +341,13 @@ function parseQuery(search) {
     if (!Number.isFinite(value) || value < 0) {
       throw new Error(`Invalid count for ${type}: ${raw}`);
     }
-    const slots = diceSlots(type);
+    const slots = physicalDice(type).length;
     const next = Math.min(value, Math.floor(remaining / slots));
     counts[type] = next;
     remaining -= next * slots;
+  }
+  if (counts.d100 > 0) {
+    selectHundred();
   }
 }
 
@@ -339,66 +378,26 @@ function getBox() {
   return box;
 }
 
-function collapseNotation(terms) {
-  const order = [];
-  const tally = new Map();
-  for (const term of terms) {
-    if (!tally.has(term)) {
-      order.push(term);
-      tally.set(term, 0);
-    }
-    tally.set(term, tally.get(term) + 1);
-  }
-  return order
-    .map((term) => {
-      const count = tally.get(term);
-      return count > 1 ? `${count}${term}` : term;
-    })
-    .join(" + ");
-}
-
-function presentRoll(notation) {
-  const terms = [];
-  const groups = [];
-  let total = 0;
+function showResult(notation) {
   const set = notation.set;
   const rolled = notation.result;
-  for (let i = 0; i < set.length; i += 1) {
-    if (set[i] === "d100" && set[i + 1] === "d9") {
-      const tens = rolled[i];
-      const ones = rolled[i + 1];
-      const value = tens + ones === 0 ? 100 : tens + ones;
-      terms.push("d%");
-      groups.push(`${String(tens).padStart(2, "0")} + ${ones}`);
-      total += value;
-      i += 1;
-      continue;
-    }
-    terms.push(set[i]);
-    groups.push(String(rolled[i]));
-    total += rolled[i];
-  }
-  const singlePercent = terms.length === 1 && terms[0] === "d%";
-  let breakdown = groups.join(", ");
-  if (groups.length > 1 || singlePercent) {
-    breakdown += ` = ${total}`;
-  }
-  if (singlePercent) {
-    breakdown += "%";
-  }
-  return {
-    notation: collapseNotation(terms),
-    breakdown,
-    total: singlePercent ? `${total}%` : String(total),
-  };
-}
-
-function showResult(notation) {
-  const presented = presentRoll(notation);
   result.hidden = false;
-  notationEl.textContent = presented.notation;
-  breakdownEl.textContent = presented.breakdown;
-  totalEl.textContent = presented.total;
+  if (set.length === 2 && set[0] === "d100" && set[1] === "d9") {
+    const total = rolled[0] + rolled[1] === 0 ? 100 : rolled[0] + rolled[1];
+    notationEl.textContent = "d100";
+    breakdownEl.textContent = `${String(rolled[0]).padStart(2, "0")} + ${rolled[1]} = ${total}`;
+    totalEl.textContent = String(total);
+    return;
+  }
+  if (set.length === 1 && set[0] === "d100s") {
+    notationEl.textContent = "d100";
+    breakdownEl.textContent = String(rolled[0]);
+    totalEl.textContent = String(rolled[0]);
+    return;
+  }
+  notationEl.textContent = window.DICE.stringify_notation(notation);
+  breakdownEl.textContent = notation.resultString;
+  totalEl.textContent = String(notation.resultTotal);
 }
 
 function roll() {
@@ -512,6 +511,8 @@ colorClose.addEventListener("click", closeColorPanel);
 marbleToggle.addEventListener("change", () => {
   applyMarble(marbleToggle.checked);
 });
+hundredDie.addEventListener("change", () => applyHundred(false));
+hundredPair.addEventListener("change", () => applyHundred(true));
 document.addEventListener("mousedown", (event) => {
   if (colorPanel.hidden) {
     return;
@@ -538,6 +539,8 @@ window.addEventListener("resize", () => {
 function boot() {
   marble = savedMarble();
   marbleToggle.checked = marble;
+  hundredAsPair = savedHundredAsPair();
+  renderHundredChoice();
   applyDiceColor(savedColor());
 
   try {
