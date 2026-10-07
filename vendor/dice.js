@@ -24,6 +24,7 @@
  * - draw with Three.js r186 buffer geometry
  * - sample marble colour from inside the die
  * - round the bevel so the edge is a curve, not a flat cut
+ * - add a large hundred-face die
  */
 
 const DICE = (function() {
@@ -62,11 +63,11 @@ const DICE = (function() {
     }
 
     const CONSTS = {
-        known_types: ['d4', 'd6', 'd8', 'd9', 'd10', 'd12', 'd20', 'd100'],
+        known_types: ['d4', 'd6', 'd8', 'd9', 'd10', 'd12', 'd20', 'd100', 'd100s'],
         dice_face_range: { 'd4': [1, 4], 'd6': [1, 6], 'd8': [1, 8], 'd9': [0, 9], 'd10': [0, 9], 
-            'd12': [1, 12], 'd20': [1, 20], 'd100': [0, 9] },
-        dice_mass: { 'd4': 300, 'd6': 300, 'd8': 340, 'd9': 350, 'd10': 350, 'd12': 350, 'd20': 400, 'd100': 350 },
-        dice_inertia: { 'd4': 5, 'd6': 13, 'd8': 10, 'd9': 9, 'd10': 9, 'd12': 8, 'd20': 6, 'd100': 9 },
+            'd12': [1, 12], 'd20': [1, 20], 'd100': [0, 9], 'd100s': [1, 100] },
+        dice_mass: { 'd4': 300, 'd6': 300, 'd8': 340, 'd9': 350, 'd10': 350, 'd12': 350, 'd20': 400, 'd100': 350, 'd100s': 480 },
+        dice_inertia: { 'd4': 5, 'd6': 13, 'd8': 10, 'd9': 9, 'd10': 9, 'd12': 8, 'd20': 6, 'd100': 9, 'd100s': 12 },
         
         standart_d20_dice_face_labels: [' ', '0', '1', '2', '3', '4', '5', '6', '7', '8',
                 '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
@@ -513,6 +514,17 @@ const DICE = (function() {
         if (!this.d100_material) this.d100_material = create_dice_materials(CONSTS.standart_d100_dice_face_labels, vars.scale / 2, 1.5);
         return new THREE.Mesh(this.d10_geometry, this.d100_material);
     }
+
+    threeD_dice.create_d100s = function() {
+        if (!this.d100s_geometry) this.d100s_geometry = create_d100s_geometry(vars.scale * 1.7);
+        if (!this.d100s_material) {
+            var labels = new Array(102);
+            labels[0] = ' ';
+            for (var n = 1; n < labels.length; ++n) labels[n] = String(n - 1);
+            this.d100s_material = create_dice_materials(labels, vars.scale / 2, 2);
+        }
+        return new THREE.Mesh(this.d100s_geometry, this.d100s_material);
+    }
     
     var SOLID_STONE_GLSL = [
         'float solidHash(vec3 p) {',
@@ -855,6 +867,143 @@ const DICE = (function() {
         }
     }
 
+    function create_d100s_geometry(radius) {
+        var sites = fibonacci_sphere(100);
+        var triangles = convex_hull(sites);
+        var poles = [];
+        for (var t = 0; t < triangles.length; ++t) {
+            var tri = triangles[t];
+            var a = sites[tri[0]], b = sites[tri[1]], c = sites[tri[2]];
+            var normal = b.clone().sub(a).cross(c.clone().sub(a));
+            poles.push(normal.multiplyScalar(1 / normal.dot(a)));
+        }
+        var incident = new Array(sites.length);
+        for (var i = 0; i < sites.length; ++i) incident[i] = [];
+        for (var t = 0; t < triangles.length; ++t) {
+            for (var k = 0; k < 3; ++k) incident[triangles[t][k]].push(t);
+        }
+        var labels = label_antipodes(sites);
+        var maxLen = 0;
+        for (var i = 0; i < poles.length; ++i) maxLen = Math.max(maxLen, poles[i].length());
+        var vertices = new Array(poles.length);
+        for (var i = 0; i < poles.length; ++i) {
+            var p = poles[i].multiplyScalar(1 / maxLen);
+            vertices[i] = [p.x, p.y, p.z];
+        }
+        var faces = new Array(sites.length);
+        for (var i = 0; i < sites.length; ++i) {
+            var loop = order_around(sites[i], incident[i], poles);
+            loop.push(labels[i]);
+            faces[i] = loop;
+        }
+        return create_geom(vertices, faces, radius, 0.25, 0, 0.97, true);
+    }
+
+    function fibonacci_sphere(count) {
+        var points = new Array(count);
+        var golden = Math.PI * (3 - Math.sqrt(5));
+        for (var i = 0; i < count; ++i) {
+            var y = 1 - (i / (count - 1)) * 2;
+            var ring = Math.sqrt(Math.max(0, 1 - y * y));
+            var theta = golden * i;
+            points[i] = new THREE.Vector3(Math.cos(theta) * ring, y, Math.sin(theta) * ring);
+        }
+        return points;
+    }
+
+    function hull_orient(a, b, c, p) {
+        return b.clone().sub(a).cross(c.clone().sub(a)).dot(p.clone().sub(a));
+    }
+
+    function convex_hull(points) {
+        var interior = points[0].clone().add(points[1]).add(points[2]).add(points[3]).multiplyScalar(0.25);
+        function newFace(a, b, c) {
+            if (hull_orient(points[a], points[b], points[c], interior) > 0) {
+                var swap = b;
+                b = c;
+                c = swap;
+            }
+            return [a, b, c];
+        }
+        function sees(face, index) {
+            return hull_orient(points[face[0]], points[face[1]], points[face[2]], points[index]) > 1e-8;
+        }
+        var faces = [newFace(0, 1, 2), newFace(0, 2, 3), newFace(0, 3, 1), newFace(1, 3, 2)];
+        for (var index = 4; index < points.length; ++index) {
+            var visible = [];
+            for (var f = 0; f < faces.length; ++f) {
+                if (sees(faces[f], index)) visible.push(f);
+            }
+            if (!visible.length) continue;
+            var edgeCount = {};
+            for (var v = 0; v < visible.length; ++v) {
+                var verts = faces[visible[v]];
+                for (var e = 0; e < 3; ++e) {
+                    var from = verts[e], to = verts[(e + 1) % 3];
+                    var key = from < to ? from + ',' + to : to + ',' + from;
+                    if (!edgeCount[key]) edgeCount[key] = { dir: [from, to], n: 0 };
+                    edgeCount[key].n += 1;
+                }
+            }
+            var remove = {};
+            for (var v = 0; v < visible.length; ++v) remove[visible[v]] = true;
+            var next = [];
+            for (var f = 0; f < faces.length; ++f) {
+                if (!remove[f]) next.push(faces[f]);
+            }
+            for (var key in edgeCount) {
+                if (edgeCount[key].n === 1) {
+                    next.push(newFace(edgeCount[key].dir[0], edgeCount[key].dir[1], index));
+                }
+            }
+            faces = next;
+        }
+        return faces;
+    }
+
+    function label_antipodes(sites) {
+        var used = new Array(sites.length);
+        var partner = new Array(sites.length);
+        for (var i = 0; i < sites.length; ++i) {
+            if (used[i]) continue;
+            var best = -1, bestDot = 2;
+            for (var j = i + 1; j < sites.length; ++j) {
+                if (used[j]) continue;
+                var closeness = sites[i].dot(sites[j]);
+                if (closeness < bestDot) {
+                    bestDot = closeness;
+                    best = j;
+                }
+            }
+            used[i] = used[best] = true;
+            partner[i] = best;
+            partner[best] = i;
+        }
+        var labels = new Array(sites.length);
+        var number = 1;
+        for (var i = 0; i < sites.length; ++i) {
+            if (labels[i]) continue;
+            labels[i] = number;
+            labels[partner[i]] = 101 - number;
+            number += 1;
+        }
+        return labels;
+    }
+
+    function order_around(center, triangleIds, poles) {
+        var axis = center.clone().normalize();
+        var helper = Math.abs(axis.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+        var tangent = helper.clone().cross(axis).normalize();
+        var bitangent = axis.clone().cross(tangent);
+        var ordered = triangleIds.slice();
+        ordered.sort(function(p, q) {
+            var ap = Math.atan2(poles[p].dot(bitangent), poles[p].dot(tangent));
+            var aq = Math.atan2(poles[q].dot(bitangent), poles[q].dot(tangent));
+            return ap - aq;
+        });
+        return ordered;
+    }
+
     // HELPERS
 
     function rnd() {
@@ -878,7 +1027,7 @@ const DICE = (function() {
                 (Math.sin(angle) + 1 + tab) / 2 / (1 + tab)];
     }
 
-    function make_geom(vertices, faces, radius, tab, af) {
+    function make_geom(vertices, faces, radius, tab, af, built) {
         var positions = [];
         var normals = [];
         var uvs = [];
@@ -891,12 +1040,48 @@ const DICE = (function() {
             var n = vertex.userNormal || faceNormal;
             normals.push(n.x, n.y, n.z);
         }
+        function planarFaceUvs(ii, fl) {
+            var center = new THREE.Vector3();
+            var k;
+            for (k = 0; k < fl; ++k) center.add(vertices[ii[k]]);
+            center.multiplyScalar(1 / fl);
+            var nrm = new THREE.Vector3();
+            for (k = 0; k < fl; ++k) {
+                var p = vertices[ii[k]];
+                var q = vertices[ii[(k + 1) % fl]];
+                nrm.x += (p.y - q.y) * (p.z + q.z);
+                nrm.y += (p.z - q.z) * (p.x + q.x);
+                nrm.z += (p.x - q.x) * (p.y + q.y);
+            }
+            if (nrm.lengthSq() < 1e-12) nrm.set(0, 0, 1);
+            else nrm.normalize();
+            var preferred = Math.abs(nrm.y) > 0.85 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+            var bitangent = preferred.clone().addScaledVector(nrm, -preferred.dot(nrm)).normalize();
+            var tangent = bitangent.clone().cross(nrm).normalize();
+            var coords = [];
+            var maxR = 1e-6;
+            for (k = 0; k < fl; ++k) {
+                var rel = vertices[ii[k]].clone().sub(center);
+                var x = rel.dot(tangent);
+                var y = rel.dot(bitangent);
+                coords.push(x, y);
+                var reach = Math.sqrt(x * x + y * y);
+                if (reach > maxR) maxR = reach;
+            }
+            var fit = 0.42 / maxR;
+            var mapped = new Array(fl);
+            for (k = 0; k < fl; ++k) {
+                mapped[k] = [0.5 + coords[k * 2] * fit, 0.5 + coords[k * 2 + 1] * fit];
+            }
+            return mapped;
+        }
         var vertexCount = 0;
         for (var i = 0; i < faces.length; ++i) {
             var ii = faces[i], fl = ii.length - 1;
             var aa = Math.PI * 2 / fl;
             var materialIndex = ii[fl] + 1;
             var start = vertexCount;
+            var faceUvs = built && ii[fl] >= 0 ? planarFaceUvs(ii, fl) : null;
             for (var j = 0; j < fl - 2; ++j) {
                 var a = vertices[ii[0]];
                 var b = vertices[ii[j + 1]];
@@ -910,9 +1095,9 @@ const DICE = (function() {
                 pushNormal(a, faceNormal);
                 pushNormal(b, faceNormal);
                 pushNormal(c, faceNormal);
-                var uvA = face_uv(af, tab);
-                var uvB = face_uv(aa * (j + 1) + af, tab);
-                var uvC = face_uv(aa * (j + 2) + af, tab);
+                var uvA = faceUvs ? faceUvs[0] : face_uv(af, tab);
+                var uvB = faceUvs ? faceUvs[j + 1] : face_uv(aa * (j + 1) + af, tab);
+                var uvC = faceUvs ? faceUvs[j + 2] : face_uv(aa * (j + 2) + af, tab);
                 uvs.push(uvA[0], uvA[1], uvB[0], uvB[1], uvC[0], uvC[1]);
                 faceRecords.push({ materialIndex: materialIndex, normal: faceNormal });
                 vertexCount += 3;
@@ -1129,14 +1314,15 @@ const DICE = (function() {
         return { vectors: outV, faces: outF };
     }
 
-    function create_geom(vertices, faces, radius, tab, af, chamfer) {
+    function create_geom(vertices, faces, radius, tab, af, chamfer, built) {
         var vectors = new Array(vertices.length);
         for (var i = 0; i < vertices.length; ++i) {
-            vectors[i] = (new THREE.Vector3).fromArray(vertices[i]).normalize();
+            vectors[i] = (new THREE.Vector3).fromArray(vertices[i]);
+            if (!built) vectors[i].normalize();
         }
         var cg = chamfer_geom(vectors, faces, chamfer);
         var rounded = fillet_chamfer(cg, 4);
-        var geom = make_geom(rounded.vectors, rounded.faces, radius, tab, af);
+        var geom = make_geom(rounded.vectors, rounded.faces, radius, tab, af, built);
         //var geom = make_geom(vectors, faces, radius, tab, af); // Without chamfer
         geom.cannon_shape = create_shape(vectors, faces, radius);
         return geom;
@@ -1225,6 +1411,7 @@ const DICE = (function() {
         threeD_dice.dice_material = null;
         threeD_dice.d4_material = null;
         threeD_dice.d100_material = null;
+        threeD_dice.d100s_material = null;
     }
 
     function clearGeometryCache() {
@@ -1234,6 +1421,7 @@ const DICE = (function() {
         threeD_dice.d10_geometry = null;
         threeD_dice.d12_geometry = null;
         threeD_dice.d20_geometry = null;
+        threeD_dice.d100s_geometry = null;
         clearMaterials();
     }
 

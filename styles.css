@@ -134,6 +134,10 @@ body {
   letter-spacing: 0.02em;
 }
 
+.die-face.is-wide {
+  font-size: 0.58rem;
+}
+
 .badge {
   position: absolute;
   top: -0.35rem;
@@ -150,18 +154,23 @@ body {
   padding: 0;
 }
 
-.color-dot {
+.hamburger {
+  display: grid;
+  gap: 0.22rem;
+  width: 1.15rem;
+}
+
+.hamburger span {
   display: block;
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  border: 2px solid var(--border);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--gold);
 }
 
 .color-panel {
   position: fixed;
   z-index: 5;
-  width: 11.4rem;
+  width: 15.4rem;
   padding: 0.75rem 0.8rem 0.9rem;
   border: 1px solid var(--border);
   border-radius: 0.8rem;
@@ -235,6 +244,33 @@ body {
 }
 
 .marble-toggle input {
+  margin: 0;
+  accent-color: var(--gold);
+}
+
+.hundred-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.hundred-label {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hundred-choice label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hundred-choice input {
   margin: 0;
   accent-color: var(--gold);
 }
@@ -349,9 +385,9 @@ body {
     font-size: 0.64rem;
   }
 
-  .color-dot {
-    width: 1.15rem;
-    height: 1.15rem;
+  .hamburger {
+    width: 1rem;
+    gap: 0.18rem;
   }
 
   .result {

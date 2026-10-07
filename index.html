@@ -14,7 +14,7 @@
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=neutral-tray" />
+    <link rel="stylesheet" href="styles.css?v=menu3" />
     <script>
       window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
       (function () {
@@ -72,11 +72,16 @@
             <span class="die-face" style="background-color: #393939; color: #c4a15a">D20</span>
           </button>
         </div>
+        <div class="die-wrap">
+          <button class="die-btn" type="button" title="Add d100">
+            <span class="die-face is-wide" style="background-color: #393939; color: #c4a15a">D100</span>
+          </button>
+        </div>
       </div>
       <p class="cap" id="cap">0/10</p>
       <div>
-        <button id="color-toggle" type="button" title="Choose dice color">
-          <span id="color-dot" class="color-dot"></span>
+        <button id="color-toggle" type="button" title="Options" aria-expanded="false" aria-controls="color-panel">
+          <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
         </button>
       </div>
       <button id="roll-btn" type="button" disabled>Roll</button>
@@ -85,7 +90,7 @@
 
     <div id="color-panel" class="color-panel" hidden>
       <div class="color-panel-head">
-        <p>Dice color</p>
+        <p>Options</p>
         <button id="color-close" type="button" title="Close">×</button>
       </div>
       <div id="color-swatches" class="color-swatches"></div>
@@ -93,6 +98,17 @@
         <input id="marble-toggle" type="checkbox" />
         Marble
       </label>
+      <div class="hundred-choice">
+        <span class="hundred-label">D100</span>
+        <label>
+          <input id="hundred-die" type="radio" name="hundred" value="die" checked />
+          1xd100
+        </label>
+        <label>
+          <input id="hundred-pair" type="radio" name="hundred" value="pair" />
+          2xd10
+        </label>
+      </div>
     </div>
 
     <section class="result" id="result" hidden>
@@ -103,7 +119,7 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script defer src="app.js?v=roll-ready"></script>
-    <script type="module" src="boot.js?v=roll-ready"></script>
+    <script defer src="app.js?v=menu6"></script>
+    <script type="module" src="boot.js?v=menu6"></script>
   </body>
 </html>
