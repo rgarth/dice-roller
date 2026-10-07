@@ -13,5 +13,5 @@ function loadScript(src) {
 }
 
 await loadScript("vendor/cannon.min.js");
-await loadScript("vendor/dice.js?v=round2");
-await loadScript("app.js?v=preview-data");
+await loadScript("vendor/dice.js?v=percent1");
+await loadScript("app.js?v=percent1");

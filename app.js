@@ -1,4 +1,4 @@
-const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20"];
+const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20", "d%"];
 const MAX_DICE = 10;
 const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
@@ -38,6 +38,7 @@ const counts = {
   d10: 0,
   d12: 0,
   d20: 0,
+  "d%": 0,
 };
 
 const SHAKE_THRESHOLD = 15;
@@ -54,15 +55,23 @@ let shakeRequestPending = false;
 let shakeLockedUntil = 0;
 let lastGravity = null;
 
+function diceSlots(type) {
+  return type === "d%" ? 2 : 1;
+}
+
 function totalDice() {
-  return DICE_TYPES.reduce((sum, type) => sum + counts[type], 0);
+  return DICE_TYPES.reduce((sum, type) => sum + counts[type] * diceSlots(type), 0);
 }
 
 function selectedDice() {
   const dice = [];
   for (const type of DICE_TYPES) {
     for (let count = 0; count < counts[type]; count += 1) {
-      dice.push(type);
+      if (type === "d%") {
+        dice.push("d100", "d9");
+      } else {
+        dice.push(type);
+      }
     }
   }
   return dice;
@@ -136,7 +145,7 @@ function renderPicker() {
     const button = document.createElement("button");
     button.className = "die-btn";
     button.type = "button";
-    button.disabled = total >= MAX_DICE;
+    button.disabled = total + diceSlots(type) > MAX_DICE;
     button.title = `Add ${type}`;
     button.addEventListener("click", () => addDie(type));
 
@@ -263,7 +272,7 @@ function toggleColorPanel() {
 }
 
 function addDie(type) {
-  if (totalDice() >= MAX_DICE) {
+  if (totalDice() + diceSlots(type) > MAX_DICE) {
     return;
   }
   counts[type] += 1;
@@ -296,9 +305,10 @@ function parseQuery(search) {
     if (!Number.isFinite(value) || value < 0) {
       throw new Error(`Invalid count for ${type}: ${raw}`);
     }
-    const next = Math.min(value, remaining);
+    const slots = diceSlots(type);
+    const next = Math.min(value, Math.floor(remaining / slots));
     counts[type] = next;
-    remaining -= next;
+    remaining -= next * slots;
   }
 }
 
@@ -329,11 +339,66 @@ function getBox() {
   return box;
 }
 
+function collapseNotation(terms) {
+  const order = [];
+  const tally = new Map();
+  for (const term of terms) {
+    if (!tally.has(term)) {
+      order.push(term);
+      tally.set(term, 0);
+    }
+    tally.set(term, tally.get(term) + 1);
+  }
+  return order
+    .map((term) => {
+      const count = tally.get(term);
+      return count > 1 ? `${count}${term}` : term;
+    })
+    .join(" + ");
+}
+
+function presentRoll(notation) {
+  const terms = [];
+  const groups = [];
+  let total = 0;
+  const set = notation.set;
+  const rolled = notation.result;
+  for (let i = 0; i < set.length; i += 1) {
+    if (set[i] === "d100" && set[i + 1] === "d9") {
+      const tens = rolled[i];
+      const ones = rolled[i + 1];
+      const value = tens + ones === 0 ? 100 : tens + ones;
+      terms.push("d%");
+      groups.push(`${String(tens).padStart(2, "0")} + ${ones}`);
+      total += value;
+      i += 1;
+      continue;
+    }
+    terms.push(set[i]);
+    groups.push(String(rolled[i]));
+    total += rolled[i];
+  }
+  const singlePercent = terms.length === 1 && terms[0] === "d%";
+  let breakdown = groups.join(", ");
+  if (groups.length > 1 || singlePercent) {
+    breakdown += ` = ${total}`;
+  }
+  if (singlePercent) {
+    breakdown += "%";
+  }
+  return {
+    notation: collapseNotation(terms),
+    breakdown,
+    total: singlePercent ? `${total}%` : String(total),
+  };
+}
+
 function showResult(notation) {
+  const presented = presentRoll(notation);
   result.hidden = false;
-  notationEl.textContent = window.DICE.stringify_notation(notation);
-  breakdownEl.textContent = notation.resultString;
-  totalEl.textContent = String(notation.resultTotal);
+  notationEl.textContent = presented.notation;
+  breakdownEl.textContent = presented.breakdown;
+  totalEl.textContent = presented.total;
 }
 
 function roll() {
