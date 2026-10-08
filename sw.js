@@ -1,8 +1,8 @@
-const CACHE = "dice-offline-4";
+const CACHE = "dice-offline-6";
 
 const SHELL = [
   "index.html",
-  "styles.css?v=eng1",
+  "styles.css?v=tap2",
   "app.js?v=eng2",
   "games.js?v=eng2",
   "boot.js?v=eng2",

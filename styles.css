@@ -39,6 +39,7 @@ body {
   margin: 0;
   height: 100%;
   height: 100dvh;
+  touch-action: manipulation;
   background-color: var(--felt-deep);
   background-image: radial-gradient(ellipse at center, var(--felt), var(--felt-deep) 70%);
   color: var(--ink);
