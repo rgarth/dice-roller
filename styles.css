@@ -349,7 +349,7 @@ body {
 }
 
 .modifier-controls button,
-.modifier-controls input {
+.modifier-controls span {
   font-family: var(--display);
   font-weight: 700;
   color: var(--ink);
@@ -368,18 +368,13 @@ body {
   line-height: 1;
 }
 
-.modifier-controls input {
+.modifier-controls span {
+  display: grid;
+  place-items: center;
   width: 4.2rem;
   height: 2.4rem;
   font-size: 1rem;
   letter-spacing: 0.04em;
-  text-align: center;
-  padding: 0;
-}
-
-.modifier-controls input:focus {
-  outline: none;
-  color: var(--gold);
 }
 
 #modifier-reset {

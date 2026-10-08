@@ -14,7 +14,7 @@
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=mod5" />
+    <link rel="stylesheet" href="styles.css?v=mod7" />
     <script>
       window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
       (function () {
@@ -98,7 +98,7 @@
       </div>
       <div class="modifier-controls">
         <button id="modifier-minus" type="button" title="Decrease modifier" aria-label="Decrease modifier">−</button>
-        <input id="modifier-value" type="text" inputmode="text" value="0" aria-label="Modifier" autocomplete="off" spellcheck="false" />
+        <span id="modifier-value" aria-live="polite">0</span>
         <button id="modifier-plus" type="button" title="Increase modifier" aria-label="Increase modifier">+</button>
       </div>
       <button id="modifier-reset" type="button">Reset</button>
@@ -135,7 +135,7 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script defer src="app.js?v=mod6"></script>
+    <script defer src="app.js?v=mod7"></script>
     <script type="module" src="boot.js?v=weight1"></script>
     <script>
       if ("serviceWorker" in navigator) {

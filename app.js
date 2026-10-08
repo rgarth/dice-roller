@@ -33,7 +33,7 @@ const clearButton = document.getElementById("clear-btn");
 const modifierMinus = document.getElementById("modifier-minus");
 const modifierPlus = document.getElementById("modifier-plus");
 const modifierReset = document.getElementById("modifier-reset");
-const modifierInput = document.getElementById("modifier-value");
+const modifierValue = document.getElementById("modifier-value");
 const result = document.getElementById("result");
 const notationEl = document.getElementById("notation");
 const breakdownEl = document.getElementById("breakdown");
@@ -59,7 +59,6 @@ let selectedColor = COLORS[0];
 let marble = false;
 let hundredAsPair = false;
 let modifier = 0;
-let modifierDraft = "0";
 let box = null;
 let rolling = false;
 let shakeWatching = false;
@@ -149,24 +148,15 @@ function formatModifier(value) {
 }
 
 function showModifier() {
-  modifierDraft = formatModifier(modifier);
-  modifierInput.value = modifierDraft;
-  modifierToggle.textContent = modifierDraft;
+  const label = formatModifier(modifier);
+  modifierValue.textContent = label;
+  modifierToggle.textContent = label;
   modifierToggle.classList.toggle("is-set", modifier !== 0);
-  modifierToggle.classList.toggle("is-wide", modifierDraft.length > 3);
+  modifierToggle.classList.toggle("is-wide", label.length > 3);
 }
 
 function commitModifier(value) {
   modifier = value === 0 ? 0 : value;
-  showModifier();
-}
-
-function commitModifierField() {
-  const value = modifierInput.value.trim();
-  if (/^[+-]?\d+$/.test(value)) {
-    commitModifier(Number(value));
-    return;
-  }
   showModifier();
 }
 
@@ -358,8 +348,6 @@ function openModifierPanel() {
   modifierPanel.hidden = false;
   modifierToggle.setAttribute("aria-expanded", "true");
   positionPanel(modifierPanel, modifierToggle);
-  modifierInput.focus();
-  modifierInput.select();
 }
 
 function closeModifierPanel() {
@@ -631,23 +619,6 @@ modifierClose.addEventListener("click", closeModifierPanel);
 modifierMinus.addEventListener("click", () => stepModifier(-1));
 modifierPlus.addEventListener("click", () => stepModifier(1));
 modifierReset.addEventListener("click", () => commitModifier(0));
-modifierInput.addEventListener("input", () => {
-  const value = modifierInput.value.replace(/\s/g, "");
-  if (/^[+-]?\d*$/.test(value)) {
-    modifierDraft = value;
-    modifierInput.value = value;
-    return;
-  }
-  modifierInput.value = modifierDraft;
-});
-modifierInput.addEventListener("blur", commitModifierField);
-modifierInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    modifierInput.blur();
-    closeModifierPanel();
-  }
-});
 colorToggle.addEventListener("click", toggleColorPanel);
 colorClose.addEventListener("click", closeColorPanel);
 marbleToggle.addEventListener("change", () => {
