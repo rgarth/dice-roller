@@ -1,11 +1,12 @@
-const CACHE = "dice-offline-2";
+const CACHE = "dice-offline-4";
 
 const SHELL = [
   "index.html",
-  "styles.css?v=mod7",
-  "app.js?v=mod7",
-  "boot.js?v=weight1",
-  "vendor/dice.js?v=weight1",
+  "styles.css?v=eng1",
+  "app.js?v=eng2",
+  "games.js?v=eng2",
+  "boot.js?v=eng2",
+  "vendor/dice.js?v=eng2",
   "vendor/cannon.min.js",
   "vendor/three/three.module.js",
   "vendor/three/three.core.js",

@@ -14,7 +14,7 @@ function loadScript(src) {
 
 try {
   await loadScript("vendor/cannon.min.js");
-  await loadScript("vendor/dice.js?v=weight1");
+  await loadScript("vendor/dice.js?v=eng2");
   window.dispatchEvent(new Event("dice-ready"));
 } catch (error) {
   window.dispatchEvent(new CustomEvent("dice-failed", { detail: error }));
