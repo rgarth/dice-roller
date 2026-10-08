@@ -52,6 +52,7 @@ const DICE = (function() {
         label_color: '#c4a15a',
         dice_color: '#1a1a1a',
         label_font: 'Cinzel',
+        label_weight: '400',
         use_marble: false,
         ambient_light_color: 0xf0f0f0,
         spot_light_color: 0xefefef,
@@ -233,11 +234,13 @@ const DICE = (function() {
     that.dice_box.prototype.setAppearance = function(appearance) {
         if (appearance.dice === vars.dice_color &&
                 appearance.label === vars.label_color &&
+                appearance.weight === vars.label_weight &&
                 appearance.marble === vars.use_marble) {
             return false;
         }
         vars.dice_color = appearance.dice;
         vars.label_color = appearance.label;
+        vars.label_weight = appearance.weight;
         vars.use_marble = appearance.marble;
         clearMaterials();
         this.rolling = false;
@@ -640,7 +643,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = "400 " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
+            context.font = vars.label_weight + " " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
             paint_face_background(context, canvas.width, canvas.height, back_color, color);
             context.textAlign = "center";
             context.textBaseline = "middle";
@@ -668,7 +671,7 @@ const DICE = (function() {
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = "400 " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
+            context.font = vars.label_weight + " " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
             paint_face_background(context, canvas.width, canvas.height, back_color, color);
             context.textAlign = "center";
             context.textBaseline = "middle";

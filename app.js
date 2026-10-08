@@ -11,8 +11,8 @@ const COLORS = [
   { name: "Navy", dice: "#1a2c4a", preview: "#2a4777", label: "#f3efe4" },
   { name: "Forest", dice: "#1c3326", preview: "#325b43", label: "#c4a15a" },
   { name: "Plum", dice: "#3a2044", preview: "#5d346e", label: "#f3efe4" },
-  { name: "Rose", dice: "#a24d62", preview: "#bb7183", label: "#f3efe4" },
-  { name: "Aqua", dice: "#2a8f8c", preview: "#38beba", label: "#f3efe4" },
+  { name: "Rose", dice: "#a24d62", preview: "#bb7183", label: "#6e1512", light: true },
+  { name: "Aqua", dice: "#2a8f8c", preview: "#38beba", label: "#000000", light: true },
 ];
 
 const table = document.getElementById("table");
@@ -90,6 +90,7 @@ function appearance() {
   return {
     dice: selectedColor.dice,
     label: selectedColor.label,
+    weight: selectedColor.light ? "700" : "400",
     marble,
   };
 }
