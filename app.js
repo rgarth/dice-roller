@@ -20,6 +20,9 @@ const picker = document.getElementById("dice-picker");
 const cap = document.getElementById("cap");
 const colorToggle = document.getElementById("color-toggle");
 const colorPanel = document.getElementById("color-panel");
+const modifierToggle = document.getElementById("modifier-toggle");
+const modifierPanel = document.getElementById("modifier-panel");
+const modifierClose = document.getElementById("modifier-close");
 const colorSwatches = document.getElementById("color-swatches");
 const marbleToggle = document.getElementById("marble-toggle");
 const colorClose = document.getElementById("color-close");
@@ -27,6 +30,10 @@ const hundredDie = document.getElementById("hundred-die");
 const hundredPair = document.getElementById("hundred-pair");
 const rollButton = document.getElementById("roll-btn");
 const clearButton = document.getElementById("clear-btn");
+const modifierMinus = document.getElementById("modifier-minus");
+const modifierPlus = document.getElementById("modifier-plus");
+const modifierReset = document.getElementById("modifier-reset");
+const modifierInput = document.getElementById("modifier-value");
 const result = document.getElementById("result");
 const notationEl = document.getElementById("notation");
 const breakdownEl = document.getElementById("breakdown");
@@ -51,6 +58,8 @@ const SHAKE_WINDOW_MS = 300;
 let selectedColor = COLORS[0];
 let marble = false;
 let hundredAsPair = false;
+let modifier = 0;
+let modifierDraft = "0";
 let box = null;
 let rolling = false;
 let shakeWatching = false;
@@ -133,6 +142,54 @@ function savedHundredAsPair() {
 
 function writeHundredCookie() {
   document.cookie = `${HUNDRED_COOKIE}=${hundredAsPair ? "pair" : "die"}${cookieSuffix()}`;
+}
+
+function formatModifier(value) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function showModifier() {
+  modifierDraft = formatModifier(modifier);
+  modifierInput.value = modifierDraft;
+  modifierToggle.textContent = modifierDraft;
+  modifierToggle.classList.toggle("is-set", modifier !== 0);
+  modifierToggle.classList.toggle("is-wide", modifierDraft.length > 3);
+}
+
+function commitModifier(value) {
+  modifier = value === 0 ? 0 : value;
+  showModifier();
+}
+
+function commitModifierField() {
+  const value = modifierInput.value.trim();
+  if (/^[+-]?\d+$/.test(value)) {
+    commitModifier(Number(value));
+    return;
+  }
+  showModifier();
+}
+
+function stepModifier(delta) {
+  commitModifier(modifier + delta);
+}
+
+function notationWithModifier(base, rollModifier) {
+  if (rollModifier === 0) {
+    return base;
+  }
+  return rollModifier > 0 ? `${base} + ${rollModifier}` : `${base} - ${-rollModifier}`;
+}
+
+function applyModifier(diceText, diceTotal, rollModifier) {
+  if (rollModifier === 0) {
+    return { text: diceText, total: diceTotal };
+  }
+  const total = diceTotal + rollModifier;
+  const term = rollModifier < 0 ? `- ${-rollModifier}` : `+ ${rollModifier}`;
+  const split = diceText.lastIndexOf(" = ");
+  const base = split === -1 ? diceText : diceText.slice(0, split);
+  return { text: `${base} ${term} = ${total}`, total };
 }
 
 function showStatus(message) {
@@ -255,12 +312,12 @@ function applyHundred(asPair) {
   renderPicker();
 }
 
-function positionColorPanel() {
-  const rect = colorToggle.getBoundingClientRect();
+function positionPanel(panel, anchor) {
+  const rect = anchor.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
-  const panelWidth = colorPanel.offsetWidth || 200;
-  const panelHeight = colorPanel.offsetHeight || 280;
+  const panelWidth = panel.offsetWidth || 200;
+  const panelHeight = panel.offsetHeight || 160;
   let top = rect.top + rect.height / 2 - panelHeight / 2;
   let left = rect.right + 12;
 
@@ -280,19 +337,42 @@ function positionColorPanel() {
     left = viewportWidth - panelWidth - 12;
   }
 
-  colorPanel.style.top = `${top}px`;
-  colorPanel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.left = `${left}px`;
 }
 
 function openColorPanel() {
+  closeModifierPanel();
   colorPanel.hidden = false;
   colorToggle.setAttribute("aria-expanded", "true");
-  positionColorPanel();
+  positionPanel(colorPanel, colorToggle);
 }
 
 function closeColorPanel() {
   colorPanel.hidden = true;
   colorToggle.setAttribute("aria-expanded", "false");
+}
+
+function openModifierPanel() {
+  closeColorPanel();
+  modifierPanel.hidden = false;
+  modifierToggle.setAttribute("aria-expanded", "true");
+  positionPanel(modifierPanel, modifierToggle);
+  modifierInput.focus();
+  modifierInput.select();
+}
+
+function closeModifierPanel() {
+  modifierPanel.hidden = true;
+  modifierToggle.setAttribute("aria-expanded", "false");
+}
+
+function toggleModifierPanel() {
+  if (modifierPanel.hidden) {
+    openModifierPanel();
+    return;
+  }
+  closeModifierPanel();
 }
 
 function toggleColorPanel() {
@@ -392,36 +472,42 @@ function notationText() {
     .join("+");
 }
 
-function showResult(notation) {
+function showResult(notation, rollModifier) {
   const set = notation.set;
   const rolled = notation.result;
   result.hidden = false;
   if (set.length === 2 && set[0] === "d100" && set[1] === "d9") {
-    const total = rolled[0] + rolled[1] === 0 ? 100 : rolled[0] + rolled[1];
-    notationEl.textContent = "d100";
-    breakdownEl.textContent = `${String(rolled[0]).padStart(2, "0")} + ${rolled[1]} = ${total}`;
-    totalEl.textContent = String(total);
+    const diceTotal = rolled[0] + rolled[1] === 0 ? 100 : rolled[0] + rolled[1];
+    const shown = applyModifier(`${String(rolled[0]).padStart(2, "0")} + ${rolled[1]} = ${diceTotal}`, diceTotal, rollModifier);
+    notationEl.textContent = notationWithModifier("d100", rollModifier);
+    breakdownEl.textContent = shown.text;
+    totalEl.textContent = String(shown.total);
     return;
   }
   if (set.length === 1 && set[0] === "d100s") {
-    notationEl.textContent = "d100";
-    breakdownEl.textContent = String(rolled[0]);
-    totalEl.textContent = String(rolled[0]);
+    const shown = applyModifier(String(rolled[0]), rolled[0], rollModifier);
+    notationEl.textContent = notationWithModifier("d100", rollModifier);
+    breakdownEl.textContent = shown.text;
+    totalEl.textContent = String(shown.total);
     return;
   }
-  notationEl.textContent = window.DICE.stringify_notation(notation);
-  breakdownEl.textContent = notation.resultString;
-  totalEl.textContent = String(notation.resultTotal);
+  const shown = applyModifier(notation.resultString, notation.resultTotal, rollModifier);
+  notationEl.textContent = notationWithModifier(window.DICE.stringify_notation(notation), rollModifier);
+  breakdownEl.textContent = shown.text;
+  totalEl.textContent = String(shown.total);
 }
 
 function beginThrow(dice, notation, source) {
+  const rollModifier = modifier;
   try {
     const tableBox = getBox();
     tableBox.setDice(dice);
     tableBox.start_throw((thrown) => {
       rolling = false;
       renderPicker();
-      showResult(thrown);
+      showResult(thrown, rollModifier);
+      modifier = 0;
+      showModifier();
       track("roll", {
         dice_count: dice.length,
         notation,
@@ -540,6 +626,28 @@ setupShake();
 
 rollButton.addEventListener("click", roll);
 clearButton.addEventListener("click", clearDice);
+modifierToggle.addEventListener("click", toggleModifierPanel);
+modifierClose.addEventListener("click", closeModifierPanel);
+modifierMinus.addEventListener("click", () => stepModifier(-1));
+modifierPlus.addEventListener("click", () => stepModifier(1));
+modifierReset.addEventListener("click", () => commitModifier(0));
+modifierInput.addEventListener("input", () => {
+  const value = modifierInput.value.replace(/\s/g, "");
+  if (/^[+-]?\d*$/.test(value)) {
+    modifierDraft = value;
+    modifierInput.value = value;
+    return;
+  }
+  modifierInput.value = modifierDraft;
+});
+modifierInput.addEventListener("blur", commitModifierField);
+modifierInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    modifierInput.blur();
+    closeModifierPanel();
+  }
+});
 colorToggle.addEventListener("click", toggleColorPanel);
 colorClose.addEventListener("click", closeColorPanel);
 marbleToggle.addEventListener("change", () => {
@@ -548,17 +656,18 @@ marbleToggle.addEventListener("change", () => {
 hundredDie.addEventListener("change", () => applyHundred(false));
 hundredPair.addEventListener("change", () => applyHundred(true));
 document.addEventListener("mousedown", (event) => {
-  if (colorPanel.hidden) {
-    return;
+  const target = event.target;
+  if (!colorPanel.hidden && !colorPanel.contains(target) && !colorToggle.contains(target)) {
+    closeColorPanel();
   }
-  if (colorPanel.contains(event.target) || colorToggle.contains(event.target)) {
-    return;
+  if (!modifierPanel.hidden && !modifierPanel.contains(target) && !modifierToggle.contains(target)) {
+    closeModifierPanel();
   }
-  closeColorPanel();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeColorPanel();
+    closeModifierPanel();
   }
 });
 window.addEventListener("resize", () => {
@@ -566,7 +675,10 @@ window.addEventListener("resize", () => {
     box.reinit(table);
   }
   if (!colorPanel.hidden) {
-    positionColorPanel();
+    positionPanel(colorPanel, colorToggle);
+  }
+  if (!modifierPanel.hidden) {
+    positionPanel(modifierPanel, modifierToggle);
   }
 });
 
@@ -601,6 +713,8 @@ function boot() {
   marbleToggle.checked = marble;
   hundredAsPair = savedHundredAsPair();
   renderHundredChoice();
+  showModifier();
+  document.cookie = "dice_modifier=; Max-Age=0; Path=/; SameSite=Lax";
   applyDiceColor(savedColor());
 
   try {

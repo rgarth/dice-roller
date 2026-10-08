@@ -14,7 +14,7 @@
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=menu3" />
+    <link rel="stylesheet" href="styles.css?v=mod5" />
     <script>
       window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
       (function () {
@@ -40,7 +40,6 @@
     <div id="table" aria-hidden="true"></div>
 
     <aside class="tray" aria-label="Dice tray">
-      <p class="tray-label">Tray</p>
       <div id="dice-picker" class="picker">
         <div class="die-wrap">
           <button class="die-btn" type="button" title="Add d4">
@@ -86,7 +85,24 @@
       </div>
       <button id="roll-btn" type="button" disabled>Roll</button>
       <button id="clear-btn" type="button" disabled>Clear</button>
+      <div class="modifier">
+        <p class="modifier-label">Mod</p>
+        <button id="modifier-toggle" type="button" title="Modifier" aria-expanded="false" aria-controls="modifier-panel">0</button>
+      </div>
     </aside>
+
+    <div id="modifier-panel" class="modifier-panel" hidden>
+      <div class="color-panel-head">
+        <p>Modifier</p>
+        <button id="modifier-close" type="button" title="Close">×</button>
+      </div>
+      <div class="modifier-controls">
+        <button id="modifier-minus" type="button" title="Decrease modifier" aria-label="Decrease modifier">−</button>
+        <input id="modifier-value" type="text" inputmode="text" value="0" aria-label="Modifier" autocomplete="off" spellcheck="false" />
+        <button id="modifier-plus" type="button" title="Increase modifier" aria-label="Increase modifier">+</button>
+      </div>
+      <button id="modifier-reset" type="button">Reset</button>
+    </div>
 
     <div id="color-panel" class="color-panel" hidden>
       <div class="color-panel-head">
@@ -119,7 +135,7 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script defer src="app.js?v=labels8"></script>
+    <script defer src="app.js?v=mod6"></script>
     <script type="module" src="boot.js?v=weight1"></script>
   </body>
 </html>

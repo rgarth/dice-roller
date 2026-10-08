@@ -82,7 +82,6 @@ body {
   backdrop-filter: blur(8px);
 }
 
-.tray-label,
 .cap {
   margin: 0;
   font-size: 0.68rem;
@@ -103,7 +102,8 @@ body {
 .die-btn,
 #roll-btn,
 #clear-btn,
-#color-toggle {
+#color-toggle,
+#modifier-toggle {
   appearance: none;
   cursor: pointer;
   border: 1px solid var(--border);
@@ -167,15 +167,23 @@ body {
   background: var(--gold);
 }
 
-.color-panel {
+.color-panel,
+.modifier-panel {
   position: fixed;
   z-index: 5;
-  width: 15.4rem;
   padding: 0.75rem 0.8rem 0.9rem;
   border: 1px solid var(--border);
   border-radius: 0.8rem;
   background: rgba(42, 40, 36, 0.96);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.color-panel {
+  width: 15.4rem;
+}
+
+.modifier-panel {
+  width: 12.5rem;
 }
 
 .color-panel-head {
@@ -300,6 +308,95 @@ body {
   color: var(--muted);
 }
 
+.modifier {
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
+}
+
+.modifier-label {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#modifier-toggle {
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--muted);
+}
+
+#modifier-toggle.is-set {
+  background: var(--card);
+  color: var(--gold);
+}
+
+#modifier-toggle.is-wide {
+  font-size: 0.58rem;
+  letter-spacing: 0;
+}
+
+.modifier-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.modifier-controls button,
+.modifier-controls input {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--card);
+}
+
+.modifier-controls button {
+  appearance: none;
+  cursor: pointer;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.modifier-controls input {
+  width: 4.2rem;
+  height: 2.4rem;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 0;
+}
+
+.modifier-controls input:focus {
+  outline: none;
+  color: var(--gold);
+}
+
+#modifier-reset {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .result {
   position: fixed;
   z-index: 2;
@@ -312,7 +409,8 @@ body {
 
 .result[hidden],
 .status[hidden],
-.color-panel[hidden] {
+.color-panel[hidden],
+.modifier-panel[hidden] {
   display: none;
 }
 
@@ -366,14 +464,11 @@ body {
     gap: 0.32rem;
   }
 
-  .tray-label {
-    display: none;
-  }
-
   .die-btn,
   #roll-btn,
   #clear-btn,
-  #color-toggle {
+  #color-toggle,
+  #modifier-toggle {
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 0.6rem;
@@ -409,7 +504,8 @@ body {
     gap: 0.3rem;
   }
 
-  .cap {
+  .cap,
+  .modifier {
     grid-column: 1 / -1;
   }
 }
