@@ -63,6 +63,29 @@ body {
   max-width: 100%;
 }
 
+.engine-menu {
+  position: fixed;
+  z-index: 4;
+  top: max(0.55rem, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 7.5rem);
+}
+
+.engine-menu select {
+  width: 100%;
+  max-width: 16rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: rgba(42, 40, 36, 0.94);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .tray {
   position: fixed;
   z-index: 2;
@@ -101,6 +124,7 @@ body {
 
 .die-btn,
 #roll-btn,
+#push-btn,
 #clear-btn,
 #color-toggle,
 #modifier-toggle {
@@ -115,6 +139,15 @@ body {
   padding: 0;
   display: grid;
   place-items: center;
+}
+
+.stance-btn {
+  background: var(--gold);
+  color: #1a1208;
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .die-btn:disabled {
@@ -284,10 +317,16 @@ body {
 }
 
 #roll-btn,
+#push-btn,
 #clear-btn {
   font-family: var(--display);
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+
+#push-btn {
+  background: var(--card);
+  color: var(--gold);
 }
 
 #roll-btn {
@@ -405,7 +444,14 @@ body {
 .result[hidden],
 .status[hidden],
 .color-panel[hidden],
-.modifier-panel[hidden] {
+.modifier-panel[hidden],
+#options-slot[hidden],
+#modifier-slot[hidden],
+#push-btn[hidden],
+#roll-btn[hidden],
+#clear-btn[hidden],
+#twist-readout[hidden],
+.cap[hidden] {
   display: none;
 }
 
@@ -435,6 +481,12 @@ body {
   color: var(--gold);
 }
 
+.total.is-phrase {
+  max-width: 16rem;
+  font-size: clamp(1.7rem, 6vw, 3rem);
+  line-height: 1;
+}
+
 .status {
   position: fixed;
   z-index: 3;
@@ -461,6 +513,7 @@ body {
 
   .die-btn,
   #roll-btn,
+  #push-btn,
   #clear-btn,
   #color-toggle,
   #modifier-toggle {

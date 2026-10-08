@@ -14,7 +14,7 @@
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=mod7" />
+    <link rel="stylesheet" href="styles.css?v=eng1" />
     <script>
       window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
       (function () {
@@ -38,6 +38,14 @@
   </head>
   <body>
     <div id="table" aria-hidden="true"></div>
+
+    <div class="engine-menu">
+      <select id="engine-select" aria-label="Game">
+        <option value="standard">Standard dice array</option>
+        <option value="loner">Loner</option>
+        <option value="yearzero">Year Zero</option>
+      </select>
+    </div>
 
     <aside class="tray" aria-label="Dice tray">
       <div id="dice-picker" class="picker">
@@ -77,15 +85,17 @@
           </button>
         </div>
       </div>
+      <p class="cap" id="twist-readout" hidden>Twist 0</p>
       <p class="cap" id="cap">0/10</p>
-      <div>
+      <div id="options-slot">
         <button id="color-toggle" type="button" title="Options" aria-expanded="false" aria-controls="color-panel">
           <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
         </button>
       </div>
       <button id="roll-btn" type="button" disabled>Roll</button>
+      <button id="push-btn" type="button" hidden>Push</button>
       <button id="clear-btn" type="button" disabled>Clear</button>
-      <div class="modifier">
+      <div class="modifier" id="modifier-slot">
         <p class="modifier-label">Mod</p>
         <button id="modifier-toggle" type="button" title="Modifier" aria-expanded="false" aria-controls="modifier-panel">0</button>
       </div>
@@ -135,8 +145,8 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script defer src="app.js?v=mod7"></script>
-    <script type="module" src="boot.js?v=weight1"></script>
+    <script type="module" src="app.js?v=eng2"></script>
+    <script type="module" src="boot.js?v=eng2"></script>
     <script>
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("sw.js");

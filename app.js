@@ -1,8 +1,9 @@
-const DICE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20", "d100"];
-const MAX_DICE = 10;
+import { createGames, querySelectsStandard } from "./games.js?v=eng2";
+
 const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
 const HUNDRED_COOKIE = "dice_hundred";
+const ENGINE_COOKIE = "dice_engine";
 const COLOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COLORS = [
   { name: "Onyx", dice: "#1a1a1a", preview: "#393939", label: "#c4a15a" },
@@ -34,21 +35,16 @@ const modifierMinus = document.getElementById("modifier-minus");
 const modifierPlus = document.getElementById("modifier-plus");
 const modifierReset = document.getElementById("modifier-reset");
 const modifierValue = document.getElementById("modifier-value");
+const engineSelect = document.getElementById("engine-select");
+const twistReadout = document.getElementById("twist-readout");
+const optionsSlot = document.getElementById("options-slot");
+const modifierSlot = document.getElementById("modifier-slot");
+const pushButton = document.getElementById("push-btn");
 const result = document.getElementById("result");
 const notationEl = document.getElementById("notation");
 const breakdownEl = document.getElementById("breakdown");
 const totalEl = document.getElementById("total");
 const statusEl = document.getElementById("status");
-
-const counts = {
-  d4: 0,
-  d6: 0,
-  d8: 0,
-  d10: 0,
-  d12: 0,
-  d20: 0,
-  d100: 0,
-};
 
 const SHAKE_THRESHOLD = 15;
 const SHAKE_LOCK_MS = 1000;
@@ -59,6 +55,7 @@ let selectedColor = COLORS[0];
 let marble = false;
 let hundredAsPair = false;
 let modifier = 0;
+let engine = "standard";
 let box = null;
 let rolling = false;
 let shakeWatching = false;
@@ -66,32 +63,36 @@ let shakeRequestPending = false;
 let shakeLockedUntil = 0;
 let lastGravity = null;
 
-function physicalDice(type) {
-  if (type !== "d100") {
-    return [type];
-  }
-  return hundredAsPair ? ["d100", "d9"] : ["d100s"];
-}
+const games = createGames({
+  picker,
+  cap,
+  twistReadout,
+  result,
+  notationEl,
+  breakdownEl,
+  totalEl,
+  rollButton,
+  clearButton,
+  pushButton,
+  color: () => selectedColor,
+  rolling: () => rolling,
+  tableOccupied: () => (box && box.dices.length > 0) || !result.hidden,
+  hundredAsPair: () => hundredAsPair,
+  modifier: () => modifier,
+  setModifier(value) {
+    modifier = value;
+    showModifier();
+  },
+  roll(source) {
+    roll(source);
+  },
+  refresh() {
+    renderTray();
+  },
+});
 
-function totalDice() {
-  return DICE_TYPES.reduce((sum, type) => sum + counts[type] * physicalDice(type).length, 0);
-}
-
-function selectedDice() {
-  const dice = [];
-  for (const type of DICE_TYPES) {
-    for (let count = 0; count < counts[type]; count += 1) {
-      dice.push(...physicalDice(type));
-    }
-  }
-  return dice;
-}
-
-function selectHundred() {
-  for (const type of DICE_TYPES) {
-    counts[type] = 0;
-  }
-  counts.d100 = 1;
+function game() {
+  return games[engine];
 }
 
 function appearance() {
@@ -103,12 +104,57 @@ function appearance() {
   };
 }
 
+function renderTray() {
+  game().render();
+  colorToggle.disabled = rolling;
+  engineSelect.disabled = rolling;
+  pushButton.disabled = rolling;
+}
+
+function applyChrome() {
+  const controls = game().controls;
+  optionsSlot.hidden = !controls.options;
+  modifierSlot.hidden = !controls.modifier;
+  cap.hidden = !controls.cap;
+  rollButton.hidden = !controls.roll;
+  clearButton.hidden = !controls.clear;
+  twistReadout.hidden = !controls.twist;
+  if (!controls.options) {
+    closeColorPanel();
+    closeModifierPanel();
+  }
+  engineSelect.value = engine;
+}
+
+function emptyTable() {
+  result.hidden = true;
+  hideStatus();
+  if (box) box.clear();
+}
+
+function wipeBoard() {
+  for (const entry of Object.values(games)) entry.clearTray();
+  emptyTable();
+}
+
+function applyEngine(next) {
+  engine = next;
+  document.cookie = `${ENGINE_COOKIE}=${engine}${cookieSuffix()}`;
+  wipeBoard();
+  applyChrome();
+  renderTray();
+}
+
+function clearDice() {
+  game().clearTray();
+  emptyTable();
+  renderTray();
+}
+
 function readCookie(name) {
   const prefix = `${name}=`;
   for (const part of document.cookie.split("; ")) {
-    if (part.startsWith(prefix)) {
-      return decodeURIComponent(part.slice(prefix.length));
-    }
+    if (part.startsWith(prefix)) return decodeURIComponent(part.slice(prefix.length));
   }
   return null;
 }
@@ -116,6 +162,12 @@ function readCookie(name) {
 function cookieSuffix() {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   return `; Max-Age=${COLOR_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
+}
+
+function savedEngine() {
+  const raw = readCookie(ENGINE_COOKIE);
+  if (raw === "loner" || raw === "yearzero" || raw === "standard") return raw;
+  return "standard";
 }
 
 function writeColorCookie(color) {
@@ -164,24 +216,6 @@ function stepModifier(delta) {
   commitModifier(modifier + delta);
 }
 
-function notationWithModifier(base, rollModifier) {
-  if (rollModifier === 0) {
-    return base;
-  }
-  return rollModifier > 0 ? `${base} + ${rollModifier}` : `${base} - ${-rollModifier}`;
-}
-
-function applyModifier(diceText, diceTotal, rollModifier) {
-  if (rollModifier === 0) {
-    return { text: diceText, total: diceTotal };
-  }
-  const total = diceTotal + rollModifier;
-  const term = rollModifier < 0 ? `- ${-rollModifier}` : `+ ${rollModifier}`;
-  const split = diceText.lastIndexOf(" = ");
-  const base = split === -1 ? diceText : diceText.slice(0, split);
-  return { text: `${base} ${term} = ${total}`, total };
-}
-
 function showStatus(message) {
   statusEl.hidden = false;
   statusEl.textContent = message;
@@ -194,56 +228,10 @@ function hideStatus() {
 
 function fail(error) {
   rolling = false;
-  renderPicker();
+  renderTray();
   const message = error instanceof Error ? error.message : String(error);
   console.error(error);
   showStatus(message);
-}
-
-function renderPicker() {
-  const total = totalDice();
-  picker.replaceChildren();
-  for (const type of DICE_TYPES) {
-    const wrap = document.createElement("div");
-    wrap.className = "die-wrap";
-
-    const button = document.createElement("button");
-    button.className = "die-btn";
-    button.type = "button";
-    button.disabled = type !== "d100" && total + physicalDice(type).length > MAX_DICE;
-    button.title = `Add ${type}`;
-    button.addEventListener("click", () => addDie(type));
-
-    const face = document.createElement("span");
-    face.className = "die-face";
-    face.textContent = type.toUpperCase();
-    if (type === "d100") face.classList.add("is-wide");
-    face.style.backgroundColor = selectedColor.preview;
-    face.style.color = selectedColor.label;
-    button.append(face);
-    wrap.append(button);
-
-    if (counts[type] > 0) {
-      const badge = document.createElement("button");
-      badge.className = "badge";
-      badge.type = "button";
-      badge.title = `Remove ${type}`;
-      badge.textContent = String(counts[type]);
-      badge.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        removeDie(type);
-      });
-      wrap.append(badge);
-    }
-
-    picker.append(wrap);
-  }
-
-  cap.textContent = `${total}/${MAX_DICE}`;
-  rollButton.disabled = total === 0 || rolling;
-  clearButton.disabled = total === 0 || rolling;
-  colorToggle.disabled = rolling;
 }
 
 function renderSwatches() {
@@ -264,15 +252,11 @@ function renderSwatches() {
 }
 
 function applyAppearance() {
-  if (!box) {
-    return;
-  }
+  if (!box) return;
   const changed = box.setAppearance(appearance());
-  if (!changed || !rolling) {
-    return;
-  }
+  if (!changed || !rolling) return;
   rolling = false;
-  renderPicker();
+  renderTray();
 }
 
 function applyDiceColor(color) {
@@ -280,7 +264,7 @@ function applyDiceColor(color) {
   writeColorCookie(color);
   applyAppearance();
   renderSwatches();
-  renderPicker();
+  renderTray();
 }
 
 function applyMarble(enabled) {
@@ -299,7 +283,7 @@ function applyHundred(asPair) {
   hundredAsPair = asPair;
   writeHundredCookie();
   renderHundredChoice();
-  renderPicker();
+  renderTray();
 }
 
 function positionPanel(panel, anchor) {
@@ -311,21 +295,11 @@ function positionPanel(panel, anchor) {
   let top = rect.top + rect.height / 2 - panelHeight / 2;
   let left = rect.right + 12;
 
-  if (top < 10) {
-    top = 10;
-  }
-  if (top + panelHeight > viewportHeight - 10) {
-    top = Math.max(10, viewportHeight - panelHeight - 10);
-  }
-  if (left < 12) {
-    left = 12;
-  }
-  if (left + panelWidth > viewportWidth - 12) {
-    left = Math.max(12, rect.left - panelWidth - 12);
-  }
-  if (left + panelWidth > viewportWidth - 12) {
-    left = viewportWidth - panelWidth - 12;
-  }
+  if (top < 10) top = 10;
+  if (top + panelHeight > viewportHeight - 10) top = Math.max(10, viewportHeight - panelHeight - 10);
+  if (left < 12) left = 12;
+  if (left + panelWidth > viewportWidth - 12) left = Math.max(12, rect.left - panelWidth - 12);
+  if (left + panelWidth > viewportWidth - 12) left = viewportWidth - panelWidth - 12;
 
   panel.style.top = `${top}px`;
   panel.style.left = `${left}px`;
@@ -371,136 +345,29 @@ function toggleColorPanel() {
   closeColorPanel();
 }
 
-function addDie(type) {
-  if (type === "d100") {
-    selectHundred();
-  } else {
-    counts.d100 = 0;
-    if (totalDice() + physicalDice(type).length > MAX_DICE) {
-      return;
-    }
-    counts[type] += 1;
-  }
-  syncUrl();
-  renderPicker();
-}
-
-function removeDie(type) {
-  counts[type] = Math.max(0, counts[type] - 1);
-  syncUrl();
-  renderPicker();
-}
-
-function clearDice() {
-  for (const type of DICE_TYPES) {
-    counts[type] = 0;
-  }
-  result.hidden = true;
-  hideStatus();
-  syncUrl();
-  renderPicker();
-}
-
-function parseQuery(search) {
-  const params = new URLSearchParams(search);
-  let remaining = MAX_DICE;
-  for (const type of DICE_TYPES) {
-    const raw = params.get(type);
-    const value = raw == null ? 0 : Number.parseInt(raw, 10);
-    if (!Number.isFinite(value) || value < 0) {
-      throw new Error(`Invalid count for ${type}: ${raw}`);
-    }
-    const slots = physicalDice(type).length;
-    const next = Math.min(value, Math.floor(remaining / slots));
-    counts[type] = next;
-    remaining -= next * slots;
-  }
-  if (counts.d100 > 0) {
-    selectHundred();
-  }
-}
-
-function syncUrl() {
-  const params = new URLSearchParams();
-  for (const type of DICE_TYPES) {
-    if (counts[type] > 0) {
-      params.set(type, String(counts[type]));
-    }
-  }
-  const query = params.toString();
-  const next = query ? `?${query}` : window.location.pathname;
-  window.history.replaceState(null, "", next);
-}
-
 function getBox() {
-  if (!window.DICE?.dice_box) {
-    throw new Error("The dice library did not load.");
-  }
-  if (box) {
-    return box;
-  }
-  if (!table.clientWidth || !table.clientHeight) {
-    throw new Error("The table has no room for the dice.");
-  }
+  if (!window.DICE?.dice_box) throw new Error("The dice library did not load.");
+  if (box) return box;
+  if (!table.clientWidth || !table.clientHeight) throw new Error("The table has no room for the dice.");
   box = new window.DICE.dice_box(table);
   box.setAppearance(appearance());
   return box;
 }
 
 function track(name, params) {
-  if (typeof window.gtag !== "function") {
-    return;
-  }
+  if (typeof window.gtag !== "function") return;
   window.gtag("event", name, params);
 }
 
-function notationText() {
-  return DICE_TYPES.filter((type) => counts[type] > 0)
-    .map((type) => `${counts[type]}${type}`)
-    .join("+");
-}
-
-function showResult(notation, rollModifier) {
-  const set = notation.set;
-  const rolled = notation.result;
-  result.hidden = false;
-  if (set.length === 2 && set[0] === "d100" && set[1] === "d9") {
-    const diceTotal = rolled[0] + rolled[1] === 0 ? 100 : rolled[0] + rolled[1];
-    const shown = applyModifier(`${String(rolled[0]).padStart(2, "0")} + ${rolled[1]} = ${diceTotal}`, diceTotal, rollModifier);
-    notationEl.textContent = notationWithModifier("d100", rollModifier);
-    breakdownEl.textContent = shown.text;
-    totalEl.textContent = String(shown.total);
-    return;
-  }
-  if (set.length === 1 && set[0] === "d100s") {
-    const shown = applyModifier(String(rolled[0]), rolled[0], rollModifier);
-    notationEl.textContent = notationWithModifier("d100", rollModifier);
-    breakdownEl.textContent = shown.text;
-    totalEl.textContent = String(shown.total);
-    return;
-  }
-  const shown = applyModifier(notation.resultString, notation.resultTotal, rollModifier);
-  notationEl.textContent = notationWithModifier(window.DICE.stringify_notation(notation), rollModifier);
-  breakdownEl.textContent = shown.text;
-  totalEl.textContent = String(shown.total);
-}
-
-function beginThrow(dice, notation, source) {
-  const rollModifier = modifier;
+function beginThrow(plan, notation, source) {
   try {
     const tableBox = getBox();
-    tableBox.setDice(dice);
+    tableBox.setDice(plan.types, plan.paints);
     tableBox.start_throw((thrown) => {
       rolling = false;
-      renderPicker();
-      showResult(thrown, rollModifier);
-      modifier = 0;
-      showModifier();
-      track("roll", {
-        dice_count: dice.length,
-        notation,
-        method: source,
-      });
+      game().readThrow(thrown);
+      renderTray();
+      track("roll", { dice_count: plan.types.length, notation, method: source });
     });
   } catch (error) {
     fail(error);
@@ -508,64 +375,58 @@ function beginThrow(dice, notation, source) {
 }
 
 function roll(source = "button") {
-  const dice = selectedDice();
-  if (dice.length === 0 || rolling) {
-    return;
-  }
+  if (rolling) return;
+  const plan = game().plan(source);
+  if (plan.types.length === 0) return;
 
-  const notation = notationText();
+  const notation = game().notation(source);
   hideStatus();
   rolling = true;
   rollButton.disabled = true;
   clearButton.disabled = true;
   colorToggle.disabled = true;
+  engineSelect.disabled = true;
+  pushButton.disabled = true;
+  for (const button of picker.querySelectorAll("button")) button.disabled = true;
 
   const fontsReady = document.fonts?.ready ?? Promise.resolve();
   Promise.all([fontsReady, whenDiceReady()])
     .then(() => {
       if (box) {
-        beginThrow(dice, notation, source);
+        beginThrow(plan, notation, source);
         return;
       }
-      window.requestAnimationFrame(() => beginThrow(dice, notation, source));
+      window.requestAnimationFrame(() => beginThrow(plan, notation, source));
     })
     .catch((error) => fail(error));
 }
 
 function acceleration(reading) {
-  if (!reading || !Number.isFinite(reading.x) || !Number.isFinite(reading.y) || !Number.isFinite(reading.z)) {
-    return null;
-  }
+  if (!reading || !Number.isFinite(reading.x) || !Number.isFinite(reading.y) || !Number.isFinite(reading.z)) return null;
   return reading;
 }
 
 function rollFromShake(now) {
-  if (now < shakeLockedUntil) {
-    return;
-  }
+  if (now < shakeLockedUntil) return;
   shakeLockedUntil = now + SHAKE_LOCK_MS;
   roll("shake");
 }
 
 function startShakeWatch() {
-  if (shakeWatching) {
-    return;
-  }
+  if (shakeWatching) return;
   shakeWatching = true;
   window.addEventListener("devicemotion", onShake);
 }
 
 async function enableShake() {
-  if (shakeWatching || shakeRequestPending) {
-    return;
-  }
+  if (shakeWatching || shakeRequestPending) return;
   shakeRequestPending = true;
   try {
     const state = await DeviceMotionEvent.requestPermission();
-      if (state !== "granted") {
-        showStatus("Shake needs motion access.");
-        return;
-      }
+    if (state !== "granted") {
+      showStatus("Shake needs motion access.");
+      return;
+    }
     startShakeWatch();
   } catch {
     shakeRequestPending = false;
@@ -576,33 +437,23 @@ function onShake(event) {
   const now = Date.now();
   const linear = acceleration(event.acceleration);
   if (linear) {
-    if (Math.hypot(linear.x, linear.y, linear.z) >= SHAKE_THRESHOLD) {
-      rollFromShake(now);
-    }
+    if (Math.hypot(linear.x, linear.y, linear.z) >= SHAKE_THRESHOLD) rollFromShake(now);
     return;
   }
 
   const gravity = acceleration(event.accelerationIncludingGravity);
   const previous = lastGravity;
-  if (!gravity) {
-    return;
-  }
-  if (previous && now - previous.time < SHAKE_SAMPLE_MS) {
-    return;
-  }
+  if (!gravity) return;
+  if (previous && now - previous.time < SHAKE_SAMPLE_MS) return;
   if (previous && now - previous.time < SHAKE_WINDOW_MS) {
     const delta = Math.hypot(gravity.x - previous.x, gravity.y - previous.y, gravity.z - previous.z);
-    if (delta >= SHAKE_THRESHOLD) {
-      rollFromShake(now);
-    }
+    if (delta >= SHAKE_THRESHOLD) rollFromShake(now);
   }
   lastGravity = { x: gravity.x, y: gravity.y, z: gravity.z, time: now };
 }
 
 function setupShake() {
-  if (typeof DeviceMotionEvent === "undefined") {
-    return;
-  }
+  if (typeof DeviceMotionEvent === "undefined") return;
   if (typeof DeviceMotionEvent.requestPermission !== "function") {
     startShakeWatch();
     return;
@@ -612,7 +463,9 @@ function setupShake() {
 
 setupShake();
 
-rollButton.addEventListener("click", roll);
+rollButton.addEventListener("click", () => roll("button"));
+pushButton.addEventListener("click", () => roll("push"));
+engineSelect.addEventListener("change", () => applyEngine(engineSelect.value));
 clearButton.addEventListener("click", clearDice);
 modifierToggle.addEventListener("click", toggleModifierPanel);
 modifierClose.addEventListener("click", closeModifierPanel);
@@ -628,12 +481,8 @@ hundredDie.addEventListener("change", () => applyHundred(false));
 hundredPair.addEventListener("change", () => applyHundred(true));
 document.addEventListener("mousedown", (event) => {
   const target = event.target;
-  if (!colorPanel.hidden && !colorPanel.contains(target) && !colorToggle.contains(target)) {
-    closeColorPanel();
-  }
-  if (!modifierPanel.hidden && !modifierPanel.contains(target) && !modifierToggle.contains(target)) {
-    closeModifierPanel();
-  }
+  if (!colorPanel.hidden && !colorPanel.contains(target) && !colorToggle.contains(target)) closeColorPanel();
+  if (!modifierPanel.hidden && !modifierPanel.contains(target) && !modifierToggle.contains(target)) closeModifierPanel();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
@@ -642,21 +491,13 @@ document.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("resize", () => {
-  if (box) {
-    box.reinit(table);
-  }
-  if (!colorPanel.hidden) {
-    positionPanel(colorPanel, colorToggle);
-  }
-  if (!modifierPanel.hidden) {
-    positionPanel(modifierPanel, modifierToggle);
-  }
+  if (box) box.reinit(table);
+  if (!colorPanel.hidden) positionPanel(colorPanel, colorToggle);
+  if (!modifierPanel.hidden) positionPanel(modifierPanel, modifierToggle);
 });
 
 function whenDiceReady() {
-  if (window.DICE?.dice_box) {
-    return Promise.resolve();
-  }
+  if (window.DICE?.dice_box) return Promise.resolve();
   return new Promise((resolve, reject) => {
     function finish(error) {
       window.removeEventListener("dice-ready", onReady);
@@ -686,17 +527,19 @@ function boot() {
   renderHundredChoice();
   showModifier();
   document.cookie = "dice_modifier=; Max-Age=0; Path=/; SameSite=Lax";
+  engine = savedEngine();
+  applyChrome();
   applyDiceColor(savedColor());
 
   try {
     const hadQuery = window.location.search.length > 1;
-    parseQuery(window.location.search);
-    renderPicker();
-    if (hadQuery && totalDice() > 0) {
-      roll();
-    }
+    if (querySelectsStandard(window.location.search)) engine = "standard";
+    applyChrome();
+    games.standard.loadQuery(window.location.search);
+    renderTray();
+    if (hadQuery && engine === "standard" && games.standard.total() > 0) roll();
   } catch (error) {
-    renderPicker();
+    renderTray();
     fail(error);
   }
 }

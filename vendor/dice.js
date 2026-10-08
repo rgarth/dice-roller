@@ -227,8 +227,9 @@ const DICE = (function() {
         this.renderer.render(this.scene, this.camera);
     }
 
-    that.dice_box.prototype.setDice = function(dice) {
+    that.dice_box.prototype.setDice = function(dice, paints) {
         this.dice = dice.slice();
+        this.paints = paints ? paints.slice() : [];
     }
 
     that.dice_box.prototype.setAppearance = function(appearance) {
@@ -273,6 +274,7 @@ const DICE = (function() {
 
         vector.x /= dist; vector.y /= dist;
         var notation = notation_for(box.dice);
+        notation.roles = box.paints;
         if (notation.set.length == 0) return;
         var vectors = box.generate_vectors(notation, vector, boost);
         box.rolling = true;
@@ -313,13 +315,17 @@ const DICE = (function() {
                 z: 0
             };
             var axis = { x: rnd(), y: rnd(), z: rnd(), a: rnd() };
-            vectors.push({ set: notation.set[i], pos: pos, velocity: velocity, angle: angle, axis: axis });
+            vectors.push({
+                set: notation.set[i],
+                paint: this.paints[i],
+                pos: pos, velocity: velocity, angle: angle, axis: axis
+            });
         }
         return vectors;
     }
 
-    that.dice_box.prototype.create_dice = function(type, pos, velocity, angle, axis) {
-        var dice = threeD_dice['create_' + type]();
+    that.dice_box.prototype.create_dice = function(type, pos, velocity, angle, axis, paint) {
+        var dice = threeD_dice['create_' + type](paint);
         dice.castShadow = true;
         dice.dice_type = type;
         dice.body = new CANNON.RigidBody(CONSTS.dice_mass[type],
@@ -431,7 +437,7 @@ const DICE = (function() {
         this.iteration = 0;
         for (var i in vectors) {
             this.create_dice(vectors[i].set, vectors[i].pos, vectors[i].velocity,
-                    vectors[i].angle, vectors[i].axis);
+                    vectors[i].angle, vectors[i].axis, vectors[i].paint);
         }
     }
 
@@ -476,8 +482,19 @@ const DICE = (function() {
         return new THREE.Mesh(this.d4_geometry, this.d4_material);
     }
 
-    threeD_dice.create_d6 = function() {
+    function materials_for_paint(paint) {
+        var key = paint.dice + '|' + paint.label + '|' + paint.weight;
+        if (!threeD_dice.paint_materials) threeD_dice.paint_materials = {};
+        if (!threeD_dice.paint_materials[key]) {
+            threeD_dice.paint_materials[key] = create_dice_materials(
+                CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 0.9, paint);
+        }
+        return threeD_dice.paint_materials[key];
+    }
+
+    threeD_dice.create_d6 = function(paint) {
         if (!this.d6_geometry) this.d6_geometry = create_d6_geometry(vars.scale * 1.1);
+        if (paint) return new THREE.Mesh(this.d6_geometry, materials_for_paint(paint));
         if (!this.dice_material) this.dice_material = create_dice_materials(CONSTS.standart_d20_dice_face_labels, vars.scale / 2, 0.9);
         return new THREE.Mesh(this.d6_geometry, this.dice_material);
     }
@@ -617,8 +634,8 @@ const DICE = (function() {
         };
     }
 
-    function paint_face_background(context, width, height, back_color, ink) {
-        if (vars.use_marble) {
+    function paint_face_background(context, width, height, back_color, ink, marble) {
+        if (marble) {
             context.fillStyle = '#000';
             context.fillRect(0, 0, width, height);
             context.fillStyle = '#fff';
@@ -629,35 +646,39 @@ const DICE = (function() {
         context.fillStyle = ink;
     }
 
-    function face_texture(canvas) {
+    function face_texture(canvas, marble) {
         var texture = new THREE.Texture(canvas);
-        texture.colorSpace = vars.use_marble ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+        texture.colorSpace = marble ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
         texture.needsUpdate = true;
         return texture;
     }
 
-    function create_dice_materials(face_labels, size, margin) {
+    function create_dice_materials(face_labels, size, margin, paint) {
+        var diceColor = paint ? paint.dice : vars.dice_color;
+        var labelColor = paint ? paint.label : vars.label_color;
+        var labelWeight = paint ? paint.weight : vars.label_weight;
+        var marble = paint ? false : vars.use_marble;
         function create_text_texture(text, color, back_color) {
             if (text == undefined) return null;
             var canvas = document.createElement("canvas");
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
             canvas.width = canvas.height = ts;
-            context.font = vars.label_weight + " " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
-            paint_face_background(context, canvas.width, canvas.height, back_color, color);
+            context.font = labelWeight + " " + ts / (1 + 2 * margin) + "pt " + vars.label_font + ", serif";
+            paint_face_background(context, canvas.width, canvas.height, back_color, color, marble);
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.fillText(text, canvas.width / 2, canvas.height / 2);
             if (text == '6' || text == '9') {
                 context.fillText('  .', canvas.width / 2, canvas.height / 2);
             }
-            return face_texture(canvas);
+            return face_texture(canvas, marble);
         }
         var materials = [];
-        var seed = vars.use_marble ? new THREE.Vector3(rnd() * 80, rnd() * 80, rnd() * 80) : null;
+        var seed = marble ? new THREE.Vector3(rnd() * 80, rnd() * 80, rnd() * 80) : null;
         for (var i = 0; i < face_labels.length; ++i) {
             var material = new THREE.MeshPhongMaterial(copyto(vars.material_options,
-                        { map: create_text_texture(face_labels[i], vars.label_color, vars.dice_color) }));
+                        { map: create_text_texture(face_labels[i], labelColor, diceColor) }));
             if (i === 0) material.flatShading = false;
             if (seed) bind_solid_stone(material, seed);
             materials.push(material);
@@ -672,7 +693,7 @@ const DICE = (function() {
             var ts = calc_texture_size(size + margin) * 2;
             canvas.width = canvas.height = ts;
             context.font = vars.label_weight + " " + (ts - margin) * 0.5 + "pt " + vars.label_font + ", serif";
-            paint_face_background(context, canvas.width, canvas.height, back_color, color);
+            paint_face_background(context, canvas.width, canvas.height, back_color, color, vars.use_marble);
             context.textAlign = "center";
             context.textBaseline = "middle";
             for (var i in text) {
@@ -682,7 +703,7 @@ const DICE = (function() {
                 context.rotate(Math.PI * 2 / 3);
                 context.translate(-canvas.width / 2, -canvas.height / 2);
             }
-            return face_texture(canvas);
+            return face_texture(canvas, vars.use_marble);
         }
         var materials = [];
         var seed = vars.use_marble ? new THREE.Vector3(rnd() * 80, rnd() * 80, rnd() * 80) : null;
