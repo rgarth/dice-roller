@@ -1,6 +1,6 @@
 # Dice roller
 
-3D dice for the browser. It runs on a desktop and on a phone. It is a static page, with no framework and no server, so it stays light. The page caches itself, and after the first visit it opens offline and still rolls.
+3D dice for the browser. It runs on a desktop and on a phone. It is a static page, with no framework and no server, so it stays light. The page caches itself, and after the first visit it opens offline and still rolls. Shake to roll works on a phone.
 
 Hosted demo: https://rgarth.github.io/dice-roller/
 
