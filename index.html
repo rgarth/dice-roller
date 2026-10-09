@@ -8,13 +8,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Dice roller" />
+    <meta name="dice-version" content="487d5e1" />
     <title>Dice roller</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=tap2" />
+    <link rel="stylesheet" href="styles.css?v=tap4" />
     <script>
       window.DICE_ANALYTICS_ID = "G-B8NZH9W0ZK";
       (function () {
@@ -38,6 +39,11 @@
   </head>
   <body>
     <div id="table" aria-hidden="true"></div>
+
+    <p class="update" id="update" hidden>
+      <span>A new version is ready.</span>
+      <button id="update-reload" type="button">Reload</button>
+    </p>
 
     <div class="engine-menu">
       <select id="engine-select" aria-label="Game">
@@ -145,11 +151,11 @@
 
     <p class="status" id="status" hidden></p>
 
-    <script type="module" src="app.js?v=eng2"></script>
+    <script type="module" src="app.js?v=eng4"></script>
     <script type="module" src="boot.js?v=eng2"></script>
     <script>
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("sw.js");
+        navigator.serviceWorker.register("sw.js", { type: "module" });
       }
     </script>
   </body>

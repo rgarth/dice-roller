@@ -442,6 +442,7 @@ body {
   text-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
+.update[hidden],
 .result[hidden],
 .status[hidden],
 .color-panel[hidden],
@@ -486,6 +487,43 @@ body {
   max-width: 16rem;
   font-size: clamp(1.7rem, 6vw, 3rem);
   line-height: 1;
+}
+
+.update {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  padding-top: max(0.3rem, env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border);
+  background: rgba(12, 22, 17, 0.94);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.update button {
+  appearance: none;
+  border: 0;
+  border-radius: 0.35rem;
+  background: var(--gold);
+  color: #1a1208;
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+}
+
+body:has(#update:not([hidden])) .engine-menu {
+  top: max(2.15rem, calc(env(safe-area-inset-top, 0px) + 1.7rem));
 }
 
 .status {

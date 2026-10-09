@@ -1,4 +1,5 @@
 import { createGames, querySelectsStandard } from "./games.js?v=eng2";
+import { shouldOfferUpdate } from "./offline.js?v=off1";
 
 const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
@@ -520,6 +521,38 @@ function whenDiceReady() {
   });
 }
 
+function checkForUpdate() {
+  const local = document.querySelector('meta[name="dice-version"]')?.content;
+  if (!local || !navigator.serviceWorker) return;
+  navigator.serviceWorker.ready.then((registration) => registration.update()).catch(() => {});
+  fetch("version.json", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((body) => {
+      if (!shouldOfferUpdate(local, body?.version)) return;
+      document.getElementById("update").hidden = false;
+    })
+    .catch(() => {});
+}
+
+function reloadUpdated() {
+  const worker = navigator.serviceWorker?.controller;
+  if (!worker) {
+    window.location.reload();
+    return;
+  }
+  const refreshed = new Promise((resolve) => {
+    const finish = (event) => {
+      if (event.data?.type !== "refreshed") return;
+      navigator.serviceWorker.removeEventListener("message", finish);
+      resolve();
+    };
+    navigator.serviceWorker.addEventListener("message", finish);
+    worker.postMessage({ type: "refresh" });
+    window.setTimeout(resolve, 4000);
+  });
+  refreshed.then(() => window.location.reload());
+}
+
 function boot() {
   marble = savedMarble();
   marbleToggle.checked = marble;
@@ -542,6 +575,9 @@ function boot() {
     renderTray();
     fail(error);
   }
+  checkForUpdate();
 }
+
+document.getElementById("update-reload").addEventListener("click", reloadUpdated);
 
 boot();
