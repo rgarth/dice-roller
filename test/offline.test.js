@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { SHELL, shouldOfferUpdate, storedCacheKey, workerHandles } from "../offline.js";
+import { stampVersion } from "../stamp-version.js";
 
 const root = new URL("../", import.meta.url);
 const html = readFileSync(new URL("index.html", root), "utf8");
@@ -15,14 +16,29 @@ describe("version check", () => {
   });
 
   test("a different revision offers an update and the current one does not", () => {
-    assert.equal(shouldOfferUpdate("487d5e1", "487d5e1"), false);
-    assert.equal(shouldOfferUpdate("487d5e1", "abc1234"), true);
+    assert.equal(shouldOfferUpdate("dev", "dev"), false);
+    assert.equal(shouldOfferUpdate("dev", "abc1234"), true);
   });
 
   test("a missing revision does not offer an update", () => {
-    assert.equal(shouldOfferUpdate("487d5e1", ""), false);
-    assert.equal(shouldOfferUpdate("487d5e1", null), false);
+    assert.equal(shouldOfferUpdate("dev", ""), false);
+    assert.equal(shouldOfferUpdate("dev", null), false);
     assert.equal(shouldOfferUpdate("", "abc1234"), false);
+  });
+
+  test("the publish stamp writes the commit into both files", () => {
+    const sha = "abc1234deadbeef";
+    const stamped = stampVersion(html, JSON.stringify(version), sha);
+    assert.equal(stamped.html.includes("__DICE_VERSION__"), false);
+    assert.equal(stamped.versionJson.includes("__DICE_VERSION__"), false);
+    assert.match(stamped.html, new RegExp(`name="dice-version" content="${sha}"`));
+    assert.equal(JSON.parse(stamped.versionJson).version, sha);
+  });
+
+  test("the publish stamp stops when a file has no token", () => {
+    const sha = "abc1234deadbeef";
+    assert.throws(() => stampVersion(html.replaceAll("__DICE_VERSION__", "dev"), JSON.stringify(version), sha), /index.html/);
+    assert.throws(() => stampVersion(html, JSON.stringify({ version: "dev" }), sha), /version.json/);
   });
 });
 
