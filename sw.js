@@ -1,6 +1,6 @@
-import { SHELL, storedCacheKey, workerHandles } from "./offline.js?v=off1";
+import { SHELL, storedCacheKey, workerHandles } from "./offline.js?v=off2";
 
-const CACHE = "dice-offline-9";
+const CACHE = "dice-offline-10";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

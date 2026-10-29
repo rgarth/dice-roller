@@ -66,6 +66,6 @@ describe("saved copy", () => {
       assert.ok(SHELL.includes(ref), ref);
     }
     assert.equal(SHELL.includes("version.json"), false);
-    assert.equal(SHELL.includes("offline.js?v=off1"), true);
+    assert.equal(SHELL.includes("offline.js?v=off2"), true);
   });
 });

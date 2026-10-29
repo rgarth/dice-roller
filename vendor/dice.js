@@ -419,6 +419,30 @@ const DICE = (function() {
         }
     }
 
+    that.dice_box.prototype.dieAt = function(clientX, clientY) {
+        var canvas = this.renderer.domElement;
+        var rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+        if (!this.raycaster) this.raycaster = new THREE.Raycaster();
+        if (!this.pointer) this.pointer = new THREE.Vector2();
+        this.pointer.set(
+            ((clientX - rect.left) / rect.width) * 2 - 1,
+            -((clientY - rect.top) / rect.height) * 2 + 1
+        );
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+        var hits = this.raycaster.intersectObjects(this.dices, false);
+        return hits.length ? hits[0].object : null;
+    }
+
+    that.dice_box.prototype.removeDie = function(die) {
+        var index = this.dices.indexOf(die);
+        if (index < 0) return;
+        this.dices.splice(index, 1);
+        this.scene.remove(die);
+        if (die.body) this.world.remove(die.body);
+        this.renderer.render(this.scene, this.camera);
+    }
+
     that.dice_box.prototype.clear = function() {
         this.running = false;
         var dice;

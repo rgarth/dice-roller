@@ -159,6 +159,46 @@ describe("standard", () => {
     assert.equal(host.notationEl.textContent, "d100");
   });
 
+  test("releasing one rolled die drops that count and leaves the total", () => {
+    const { games, host, urls, use } = harness();
+    use(games.standard);
+    games.standard.loadQuery("?d20=3&d6=1");
+    games.standard.render();
+    games.standard.readThrow(thrown(["d6"], [6, 6, 6, 4], {
+      set: ["d20", "d20", "d20", "d6"],
+      resultString: "6 6 6 4 = 22",
+      resultTotal: 22,
+    }));
+    assert.equal(find(host.picker, "Remove d20").textContent, "3");
+    assert.deepEqual(games.standard.releaseRolled("d20"), { only: true });
+    assert.deepEqual(games.standard.plan().types, ["d6", "d20", "d20"]);
+    assert.equal(find(host.picker, "Remove d20").textContent, "2");
+    assert.equal(find(host.picker, "Remove d6").textContent, "1");
+    assert.equal(urls.at(-1), "?d6=1&d20=2");
+    assert.equal(host.totalEl.textContent, "22");
+    assert.equal(host.breakdownEl.textContent, "6 6 6 4 = 22");
+  });
+
+  test("a percentile pair releases both halves and the big hundred die releases one", () => {
+    const { games, host, setPair } = harness();
+    games.standard.loadQuery("?d100=1");
+    games.standard.readThrow({ set: ["d100s"], result: [42], roles: [], resultString: "", resultTotal: 0 });
+    assert.deepEqual(games.standard.releaseRolled("d100s"), { only: true });
+    assert.deepEqual(games.standard.plan().types, []);
+    assert.equal(host.totalEl.textContent, "42");
+
+    setPair(true);
+    games.standard.loadQuery("?d100=1");
+    games.standard.readThrow({ set: ["d100", "d9"], result: [30, 4], roles: [], resultString: "", resultTotal: 0 });
+    assert.deepEqual(games.standard.releaseRolled("d9"), { types: ["d100", "d9"] });
+    assert.deepEqual(games.standard.plan().types, []);
+    assert.equal(host.totalEl.textContent, "34");
+    assert.equal(host.breakdownEl.textContent, "30 + 4 = 34");
+    assert.equal(games.standard.releaseRolled("nope"), null);
+    assert.equal(games.loner.releaseRolled("d6"), null);
+    assert.equal(games.yearzero.releaseRolled("d6"), null);
+  });
+
   test("clear empties the tray and the address", () => {
     const { games, urls } = harness();
     games.standard.loadQuery("?d8=3");

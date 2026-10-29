@@ -214,6 +214,13 @@ export function createGames(host) {
       for (const type of DICE_TYPES) counts[type] = 0;
       syncUrl();
     },
+    releaseRolled(physicalType) {
+      const type = physicalType === "d9" || physicalType === "d100s" ? "d100" : physicalType;
+      if (!DICE_TYPES.includes(type)) return null;
+      removeDie(type);
+      if (physicalType === "d100" || physicalType === "d9") return { types: ["d100", "d9"] };
+      return { only: true };
+    },
     total: totalDice,
     loadQuery(search) {
       const params = new URLSearchParams(search);
@@ -311,6 +318,9 @@ export function createGames(host) {
     clearTray() {
       twistCounter = 0;
     },
+    releaseRolled() {
+      return null;
+    },
     render() {
       host.picker.replaceChildren();
       for (const [stance, label, title] of LONER_STANCES) {
@@ -374,6 +384,9 @@ export function createGames(host) {
     clearTray() {
       for (const { role } of YEAR_ZERO_ROLES) yearCounts[role] = 0;
       forgetYearZeroRoll();
+    },
+    releaseRolled() {
+      return null;
     },
     render() {
       const total = yearZeroTotal();

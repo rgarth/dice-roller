@@ -1,5 +1,5 @@
-import { createGames, querySelectsStandard } from "./games.js?v=eng2";
-import { shouldOfferUpdate } from "./offline.js?v=off1";
+import { createGames, querySelectsStandard } from "./games.js?v=eng3";
+import { shouldOfferUpdate } from "./offline.js?v=off2";
 
 const COLOR_COOKIE = "dice_color";
 const MARBLE_COOKIE = "dice_marble";
@@ -131,6 +131,15 @@ function emptyTable() {
   result.hidden = true;
   hideStatus();
   if (box) box.clear();
+}
+
+function dismissRolledDie(die) {
+  const removal = game().releaseRolled(die.dice_type);
+  if (!removal) return;
+  const doomed = removal.only
+    ? [die]
+    : box.dices.filter((other) => removal.types.includes(other.dice_type));
+  for (const other of doomed) box.removeDie(other);
 }
 
 function wipeBoard() {
@@ -468,6 +477,12 @@ rollButton.addEventListener("click", () => roll("button"));
 pushButton.addEventListener("click", () => roll("push"));
 engineSelect.addEventListener("change", () => applyEngine(engineSelect.value));
 clearButton.addEventListener("click", clearDice);
+table.addEventListener("click", (event) => {
+  if (rolling || !box || result.hidden) return;
+  const die = box.dieAt(event.clientX, event.clientY);
+  if (!die) return;
+  dismissRolledDie(die);
+});
 modifierToggle.addEventListener("click", toggleModifierPanel);
 modifierClose.addEventListener("click", closeModifierPanel);
 modifierMinus.addEventListener("click", () => stepModifier(-1));
